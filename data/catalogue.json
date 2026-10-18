@@ -1,0 +1,300 @@
+[
+  {
+    "id": "if-2i2-4",
+    "category": "interface",
+    "brand": "Focusrite",
+    "model": "Scarlett 2i2 4th Gen",
+    "variant": "Scarlett 2i2 4th Gen",
+    "price_usd": 224.99,
+    "price_date": "2026-10-17",
+    "price_source_url": "https://equipboard.com/items/focusrite-scarlett-2i2-4th-generation",
+    "merchant": "merchant_a",
+    "listing": { "xlr_inputs": 2 },
+    "spec_file": "specs/if-2i2-4.png",
+    "spec_source_url": "https://userguides.focusrite.com/hc/en-gb/articles/19640392541202-2i2-4th-Gen-Specifications",
+    "spec_download_url": null,
+    "key_specs": {
+      "mic_inputs": "Two rear panel Neutrik XLR connectors",
+      "phantom_power": "48V, front panel button or software",
+      "mic_gain_range_db": 69,
+      "headphone_power": "32mW into 33 ohm, 22mW into 300 ohm",
+      "usb": "USB 2.0 Type-C"
+    },
+    "verified_by_d": false
+  },
+  {
+    "id": "if-solo-4",
+    "category": "interface",
+    "brand": "Focusrite",
+    "model": "Scarlett Solo 4th Gen",
+    "variant": "Scarlett Solo 4th Gen",
+    "price_usd": 159.99,
+    "price_date": "2026-10-18",
+    "price_source_url": "https://www.adorama.com/focusrite-scarlett-solo-4th-gen-usb-audio-interface/p/framsrsolo4g",
+    "merchant": "merchant_a",
+    "listing": { "xlr_inputs": 1 },
+    "spec_file": "specs/if-solo-4.png",
+    "spec_source_url": "https://userguides.focusrite.com/hc/en-gb/articles/17505454908562-Solo-4th-Gen-Specifications",
+    "spec_download_url": null,
+    "key_specs": {
+      "mic_inputs": "One back panel Neutrik XLR input",
+      "phantom_power": "48V, front panel button or software",
+      "mic_gain_range_db": 57,
+      "headphone_power": "32mW into 33 ohm, 22mW into 300 ohm",
+      "usb": "USB 2.0 Type-C"
+    },
+    "verified_by_d": false
+  },
+  {
+    "id": "if-umc22",
+    "category": "interface",
+    "brand": "Behringer",
+    "model": "U-PHORIA UMC22",
+    "variant": "UMC22",
+    "price_usd": 52.90,
+    "price_date": "2026-10-18",
+    "price_source_url": "https://www.bhphotovideo.com/c/product/1821220-REG/behringer_umc22_audiophile_2x2_usb_audio.html",
+    "merchant": "merchant_b",
+    "listing": { "xlr_inputs": 1 },
+    "spec_file": "specs/if-umc22.png",
+    "spec_source_url": "https://www.behringer.com/",
+    "spec_download_url": null,
+    "key_specs": {
+      "mic_inputs": "1x combo XLR-1/4 inch TRS mic/line/Hi-Z input",
+      "phantom_power": "48V, selectable on/off (applied to all inputs)",
+      "headphone_output": "1x 1/4 inch TRS",
+      "usb": "USB-B (USB 1.1)"
+    },
+    "verified_by_d": false
+  },
+  {
+    "id": "if-uca202",
+    "category": "interface",
+    "brand": "Behringer",
+    "model": "U-CONTROL UCA202",
+    "variant": "UCA202",
+    "price_usd": 24.90,
+    "price_date": "2026-10-18",
+    "price_source_url": "https://www.markertek.com/product/beh-uca202/behringer-uca202-u-control-ultra-low-latency-2-in-2-out-usb-audio-interface-with-digital-output",
+    "merchant": "merchant_c",
+    "listing": { "xlr_inputs": 0 },
+    "spec_file": "specs/if-uca202.png",
+    "spec_source_url": "https://www.behringer.com/",
+    "spec_download_url": null,
+    "key_specs": {
+      "inputs": "RCA, unbalanced line inputs",
+      "mic_preamp": false,
+      "phantom_power": "none",
+      "max_input_level": "2 dBV"
+    },
+    "verified_by_d": false
+  },
+  {
+    "id": "mic-yeti-orb",
+    "category": "microphone",
+    "brand": "Logitech G",
+    "model": "Yeti Orb",
+    "variant": "Yeti Orb",
+    "price_usd": 74.00,
+    "price_date": "2026-10-18",
+    "price_source_url": "https://www.shi.com/product/46756511/Logitech-G-Yeti-Orb-Microphone",
+    "merchant": "merchant_c",
+    "listing": {},
+    "spec_file": "specs/mic-yeti-orb.png",
+    "spec_source_url": "https://www.logitechg.com/",
+    "spec_download_url": null,
+    "key_specs": {
+      "element": "condenser",
+      "connector": "USB Type-C",
+      "xlr_output": false
+    },
+    "verified_by_d": false
+  },
+  {
+    "id": "mic-sm58lc",
+    "category": "microphone",
+    "brand": "Shure",
+    "model": "SM58",
+    "variant": "SM58-LC",
+    "price_usd": 109.00,
+    "price_date": "2026-10-18",
+    "price_source_url": "https://www.fullcompass.com/prod/019044-shure-sm58-lc-cardioid-dynamic-vocal-mic",
+    "merchant": "merchant_b",
+    "listing": {},
+    "spec_file": "specs/mic-sm58.pdf",
+    "spec_source_url": "https://www.fullcompass.com/common/files/1626-ShureSM58SpecsSheet.pdf",
+    "spec_download_url": "https://www.fullcompass.com/common/files/1626-ShureSM58SpecsSheet.pdf",
+    "key_specs": {
+      "element": "dynamic (moving coil)",
+      "connector": "XLR-3M",
+      "needs_phantom_power": false,
+      "on_off_switch": false
+    },
+    "verified_by_d": false
+  },
+  {
+    "id": "mic-sm58s",
+    "category": "microphone",
+    "brand": "Shure",
+    "model": "SM58",
+    "variant": "SM58S",
+    "price_usd": 119.00,
+    "price_date": "2026-10-18",
+    "price_source_url": "https://fullcompass.com/prod/019046-shure-sm58s-cardioid-dynamic-vocal-mic-with-on-off-switch",
+    "merchant": "merchant_c",
+    "listing": {},
+    "spec_file": "specs/mic-sm58.pdf",
+    "spec_source_url": "https://www.fullcompass.com/common/files/1626-ShureSM58SpecsSheet.pdf",
+    "spec_download_url": "https://www.fullcompass.com/common/files/1626-ShureSM58SpecsSheet.pdf",
+    "key_specs": {
+      "element": "dynamic (moving coil)",
+      "connector": "XLR-3M",
+      "needs_phantom_power": false,
+      "on_off_switch": true
+    },
+    "verified_by_d": false
+  },
+  {
+    "id": "mic-at2020",
+    "category": "microphone",
+    "brand": "Audio-Technica",
+    "model": "AT2020",
+    "variant": "AT2020",
+    "price_usd": 119.00,
+    "price_date": "2026-10-18",
+    "price_source_url": "https://audio-technica.com/en-us/AT2020",
+    "merchant": "merchant_a",
+    "listing": {},
+    "spec_file": "specs/mic-at2020.pdf",
+    "spec_source_url": "https://audio-technica.com/en-us/AT2020",
+    "spec_download_url": "https://docs.audio-technica.com/us/at2020_english.pdf",
+    "key_specs": {
+      "element": "condenser",
+      "connector": "Integral 3-pin XLRM-type",
+      "needs_phantom_power": true,
+      "phantom_power": "48V DC, 2 mA typical"
+    },
+    "verified_by_d": false
+  },
+  {
+    "id": "mic-podmic-usb",
+    "category": "microphone",
+    "brand": "RODE",
+    "model": "PodMic USB",
+    "variant": "PodMic USB",
+    "price_usd": 209.00,
+    "price_date": "2026-10-18",
+    "price_source_url": "https://avlgear.com/collections/rode/products/rode-podmic-usb-versatile-dynamic-broadcast-microphone",
+    "merchant": "merchant_b",
+    "listing": {},
+    "spec_file": "specs/mic-podmic-usb.png",
+    "spec_source_url": "https://rode.com/",
+    "spec_download_url": null,
+    "key_specs": {
+      "element": "dynamic",
+      "connector": "USB-C and 3-pin XLR",
+      "needs_phantom_power": "not stated in listing; check official spec page"
+    },
+    "verified_by_d": false
+  },
+  {
+    "id": "cable-hosa-hmic010",
+    "category": "cable",
+    "brand": "Hosa",
+    "model": "HMIC-010",
+    "variant": "HMIC-010",
+    "price_usd": 16.11,
+    "price_date": "2026-10-18",
+    "price_source_url": "https://www.adorama.com/hosa-technology-rean-xlr3f-xlr3m-microphone-cable-10-ft/p/hohmic010",
+    "merchant": "merchant_a",
+    "listing": {},
+    "spec_file": "specs/cable-hosa-hmic010.png",
+    "spec_source_url": "https://hosatech.com/",
+    "spec_download_url": null,
+    "key_specs": {
+      "ends": "XLR3F to XLR3M",
+      "length_ft": 10
+    },
+    "verified_by_d": false
+  },
+  {
+    "id": "stand-psa1",
+    "category": "stand",
+    "brand": "RODE",
+    "model": "PSA1",
+    "variant": "PSA1",
+    "price_usd": 99.00,
+    "price_date": "2026-10-18",
+    "price_source_url": "https://www.zzounds.com/item--RODPSA1",
+    "merchant": "merchant_b",
+    "listing": {},
+    "spec_file": "specs/stand-psa1.png",
+    "spec_source_url": "https://rode.com/",
+    "spec_download_url": null,
+    "key_specs": {
+      "mount_thread": "3/8 inch (retailer listing conflicts on whether a 3/8 to 5/8 adapter is included)",
+      "max_load": "0.7 to 1.1 kg"
+    },
+    "verified_by_d": false
+  },
+  {
+    "id": "hp-mdr7506",
+    "category": "headphones",
+    "brand": "Sony",
+    "model": "MDR-7506",
+    "variant": "MDR-7506",
+    "price_usd": 98.00,
+    "price_date": "2026-10-18",
+    "price_source_url": "https://www.bhphotovideo.com/c/product/803549611-USE/sony_mdr_7506_headphones.html",
+    "merchant": "merchant_c",
+    "listing": {},
+    "spec_file": "specs/hp-mdr7506.pdf",
+    "spec_source_url": "https://pro.sony/bp_BR/pdf/mdr-7506",
+    "spec_download_url": null,
+    "key_specs": {
+      "impedance_ohm": 63,
+      "plug": "3.5mm stereo mini plug, 1/4 inch adapter included"
+    },
+    "verified_by_d": false
+  },
+  {
+    "id": "hp-m50x",
+    "category": "headphones",
+    "brand": "Audio-Technica",
+    "model": "ATH-M50x",
+    "variant": "ATH-M50x",
+    "price_usd": 159.00,
+    "price_date": "2026-10-18",
+    "price_source_url": "https://audio-technica.com/en-us/ath-m50x",
+    "merchant": "merchant_a",
+    "listing": {},
+    "spec_file": "specs/hp-m50x.png",
+    "spec_source_url": "https://audio-technica.com/en-us/ath-m50x",
+    "spec_download_url": null,
+    "key_specs": {
+      "impedance_ohm": 38,
+      "plug": "3.5mm with 6.3mm screw-on adapter included"
+    },
+    "verified_by_d": false
+  },
+  {
+    "id": "hp-dt770-250",
+    "category": "headphones",
+    "brand": "beyerdynamic",
+    "model": "DT 770 PRO",
+    "variant": "DT 770 PRO 250 ohm",
+    "price_usd": 159.99,
+    "price_date": "2026-10-18",
+    "price_source_url": "https://www.fullcompass.com/prod/029981-beyerdynamic-dt-770-pro-250-closed-back-dynamic-headphones-250-ohm",
+    "merchant": "merchant_b",
+    "listing": {},
+    "spec_file": "specs/hp-dt770-250.png",
+    "spec_source_url": "https://www.beyerdynamic.com/",
+    "spec_download_url": null,
+    "key_specs": {
+      "impedance_ohm": 250,
+      "plug": "3.5mm with 6.35mm adapter (inclusion not confirmed)"
+    },
+    "verified_by_d": false
+  }
+]
