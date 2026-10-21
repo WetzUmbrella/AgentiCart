@@ -28,13 +28,31 @@ export type AuthorizedOrder = {
   status: string;
   purchase_units: { reference_id: string; payments?: { authorizations?: Authorization[] } }[];
 };
-export type Capture = { id: string; status: string; status_details?: { reason?: string } };
+export type Capture = { id: string; status: string; status_details?: { reason?: string }; invoice_id?: string };
+/** GET /v2/checkout/orders/{id}: PayPal's own record of every authorisation and capture. */
+export type OrderDetails = {
+  id: string;
+  status: string;
+  purchase_units: {
+    reference_id?: string;
+    payments?: { authorizations?: Authorization[]; captures?: Capture[] };
+  }[];
+};
 
 export interface PayPalApi {
   createOrder(units: PurchaseUnit[], requestId: string): Promise<CreatedOrder>;
   authorizeOrder(orderId: string, requestId: string): Promise<AuthorizedOrder>;
-  captureAuthorization(authId: string, cents: number, finalCapture: boolean, requestId: string): Promise<Capture>;
+  /** invoiceId tags the capture so we can find it again if the reply is lost (risk R-P3). */
+  captureAuthorization(
+    authId: string,
+    cents: number,
+    finalCapture: boolean,
+    requestId: string,
+    invoiceId?: string,
+  ): Promise<Capture>;
   voidAuthorization(authId: string, requestId: string): Promise<void>;
+  getOrder(orderId: string): Promise<OrderDetails>;
+  getAuthorization(authId: string): Promise<Authorization>;
   addTracking(orderId: string, captureId: string, trackingNumber: string, carrierNameOther: string, requestId: string): Promise<void>;
   verifyWebhook(headers: Headers, rawBody: string): Promise<boolean>;
 }
@@ -154,17 +172,25 @@ export const restPayPal: PayPalApi = {
   authorizeOrder: (orderId, requestId) =>
     pp<AuthorizedOrder>(`/v2/checkout/orders/${orderId}/authorize`, "POST", {}, requestId),
 
-  captureAuthorization: (authId, cents, finalCapture, requestId) =>
+  captureAuthorization: (authId, cents, finalCapture, requestId, invoiceId) =>
     pp<Capture>(
       `/v2/payments/authorizations/${authId}/capture`,
       "POST",
-      { amount: { currency_code: "USD", value: (cents / 100).toFixed(2) }, final_capture: finalCapture },
+      {
+        amount: { currency_code: "USD", value: (cents / 100).toFixed(2) },
+        final_capture: finalCapture,
+        ...(invoiceId ? { invoice_id: invoiceId } : {}),
+      },
       requestId,
     ),
 
   voidAuthorization: async (authId, requestId) => {
     await pp(`/v2/payments/authorizations/${authId}/void`, "POST", undefined, requestId);
   },
+
+  getOrder: (orderId) => pp<OrderDetails>(`/v2/checkout/orders/${orderId}`, "GET"),
+
+  getAuthorization: (authId) => pp<Authorization>(`/v2/payments/authorizations/${authId}`, "GET"),
 
   addTracking: async (orderId, captureId, trackingNumber, carrierNameOther, requestId) => {
     await pp(

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { authorizeOrder, closeOrder, createOrder, shipLine, type Deps } from "@/lib/orders";
-import { mockPayPal, mockCapturedCents } from "@/lib/paypal-mock";
+import { mockPayPal, mockCapturedCents, mockIsVoided } from "@/lib/paypal-mock";
+import { PayPalError } from "@/lib/paypal";
 import { orders, resetOrder } from "@/lib/store";
 import type { Line, ShipVerdict } from "@/lib/types";
 
@@ -192,6 +193,98 @@ describe("close", () => {
     const o = await closeOrder(id, deps);
     expect(o.status).toBe("CLOSED");
     expect(o.events.some((e) => e.includes("VOID_FAILED"))).toBe(true);
+  });
+});
+
+describe("uncertain charges (risk R-P3)", () => {
+  const timeout = () => new PayPalError(0, "The operation was aborted due to timeout", "POST capture");
+
+  it("confirms a charge that went through even though the reply was lost", async () => {
+    const deps = makeDeps({
+      paypal: {
+        ...mockPayPal,
+        captureAuthorization: async (...args) => {
+          await mockPayPal.captureAuthorization(...args); // PayPal took the money...
+          throw timeout(); // ...but the reply never arrived
+        },
+      },
+    });
+    const id = await authorised(deps);
+    const r = await ship(id, "line-2", "SM58-LC", deps);
+    expect(r.captured).toBe(true);
+    expect(r.line.state).toBe("CAPTURED");
+    expect(r.line.capture_uncertain).toBeUndefined();
+    expect(mockCapturedCents(r.line.auth_id!)).toBe(21800);
+  });
+
+  it("says 'do not ship' when the charge never happened, then close confirms and releases", async () => {
+    const deps = makeDeps({ paypal: { ...mockPayPal, captureAuthorization: async () => Promise.reject(timeout()) } });
+    const id = await authorised(deps);
+    const r = await ship(id, "line-2", "SM58-LC", deps);
+    expect(r.captured).toBe(false);
+    expect(r.line.state).toBe("CAPTURE_FAILED");
+    expect(r.line.capture_uncertain).toBe(true);
+    expect(r.line.error).toMatch(/Do not ship/);
+
+    const o = await closeOrder(id, makeDeps());
+    expect(o.status).toBe("CLOSED");
+    expect(o.lines[1].capture_uncertain).toBeUndefined();
+    expect(o.lines[1].state).toBe("CAPTURE_FAILED");
+    expect(mockIsVoided(o.lines[1].auth_id!)).toBe(true);
+  });
+
+  it("finds a late charge at close and tells the merchant to ship", async () => {
+    const lateDeps = makeDeps({
+      paypal: {
+        ...mockPayPal,
+        captureAuthorization: async (...args) => {
+          await mockPayPal.captureAuthorization(...args);
+          throw timeout();
+        },
+        getOrder: async () => Promise.reject(timeout()), // lookup also fails at ship time
+      },
+    });
+    const id = await authorised(lateDeps);
+    const r = await ship(id, "line-2", "SM58-LC", lateDeps);
+    expect(r.line.state).toBe("CAPTURE_FAILED");
+    expect(r.line.capture_uncertain).toBe(true);
+
+    const o = await closeOrder(id, makeDeps()); // PayPal reachable again
+    expect(o.lines[1].state).toBe("CAPTURED");
+    expect(o.lines[1].error).toMatch(/Ship this part/);
+    expect(o.released_cents).toBe(22499 + 19600); // the late charge is NOT counted as released
+  });
+
+  it("releases nothing while PayPal cannot confirm a charge", async () => {
+    const down = makeDeps({
+      paypal: {
+        ...mockPayPal,
+        captureAuthorization: async () => Promise.reject(timeout()),
+        getOrder: async () => Promise.reject(timeout()),
+      },
+    });
+    const id = await authorised(down);
+    await ship(id, "line-2", "SM58-LC", down);
+    await expect(closeOrder(id, down)).rejects.toMatchObject({ status: 503 });
+    expect(orders.get(id)!.status).toBe("AUTHORISED");
+    expect(mockIsVoided(orders.get(id)!.lines[0].auth_id!)).toBe(false);
+  });
+
+  it("does not look anything up after a clear refusal", async () => {
+    const getOrder = vi.fn(mockPayPal.getOrder);
+    const deps = makeDeps({
+      paypal: {
+        ...mockPayPal,
+        getOrder,
+        captureAuthorization: async () =>
+          Promise.reject(new PayPalError(422, JSON.stringify({ details: [{ issue: "AUTHORIZATION_VOIDED" }] }), "capture")),
+      },
+    });
+    const id = await authorised(deps);
+    const r = await ship(id, "line-2", "SM58-LC", deps);
+    expect(r.line.state).toBe("CAPTURE_FAILED");
+    expect(r.line.capture_uncertain).toBeUndefined();
+    expect(getOrder).not.toHaveBeenCalled();
   });
 });
 

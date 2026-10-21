@@ -2,7 +2,7 @@ import { getProduct, productName } from "./catalogue";
 import { config } from "./config";
 import { HttpError, expired } from "./errors";
 import { toCents } from "./money";
-import { getPayPal, PayPalError, type PayPalApi, type PurchaseUnit } from "./paypal";
+import { getPayPal, isUncertain, PayPalError, type Capture, type PayPalApi, type PurchaseUnit } from "./paypal";
 import { checkShippedModel as realCheck } from "./ai";
 import { getOrder, logEvent, saveOrder } from "./store";
 import type { Line, Order, ShipVerdict } from "./types";
@@ -33,6 +33,57 @@ function lineOf(order: Order, lineId: string): Line {
   const l = order.lines.find((x) => x.line_id === lineId);
   if (!l) throw new HttpError(404, "unknown_line");
   return l;
+}
+
+// ---------- "did that charge go through?" (risk R-P3) ----------
+
+export const UNCERTAIN_MESSAGE =
+  "PayPal did not confirm this charge. Do not ship yet. It is checked again before the order closes.";
+
+/** Tag on every capture, so a capture whose reply was lost can be found in PayPal's record. */
+export const invoiceIdFor = (orderId: string, lineId: string) => `${orderId}-${lineId}`;
+
+const isDuplicateInvoice = (err: unknown) => err instanceof PayPalError && err.issue === "DUPLICATE_INVOICE_ID";
+
+/** Finds our capture in PayPal's order record. null = PayPal has no such capture. */
+async function lookupCapture(orderId: string, invoiceId: string, deps: Deps): Promise<Capture | null | "unreachable"> {
+  try {
+    const o = await deps.paypal.getOrder(orderId);
+    const all = o.purchase_units.flatMap((u) => u.payments?.captures ?? []);
+    return all.find((c) => c.invoice_id === invoiceId) ?? null;
+  } catch {
+    return "unreachable";
+  }
+}
+
+/**
+ * Settles every line whose charge is unconfirmed, before close releases anything.
+ * Throws (and releases nothing) if PayPal cannot answer, so a hidden charge is never "released".
+ */
+async function settleUncertain(order: Order, deps: Deps): Promise<void> {
+  for (const l of order.lines.filter((x) => x.capture_uncertain)) {
+    const found = await lookupCapture(order.orderId, invoiceIdFor(order.orderId, l.line_id), deps);
+    if (found === "unreachable") {
+      throw new HttpError(503, "paypal_unreachable", {
+        message: "Could not confirm a charge with PayPal, so nothing has been released yet. Try Finish again in a minute.",
+      });
+    }
+    if (found?.status === "PENDING") {
+      throw new HttpError(409, "payment_pending", {
+        message: "PayPal is still processing a charge on this order. Try Finish again later.",
+      });
+    }
+    l.capture_uncertain = undefined;
+    if (found?.status === "COMPLETED") {
+      l.state = "CAPTURED";
+      l.capture_id = found.id;
+      l.error = "PayPal confirmed this charge after all. Ship this part.";
+      logEvent(order, `LATE_CAPTURE_CONFIRMED ${l.line_id} ${found.id}`);
+    } else {
+      l.error = "PayPal confirmed this part was never charged. Do not ship.";
+      logEvent(order, `CONFIRMED_NOT_CHARGED ${l.line_id}`);
+    }
+  }
 }
 
 // ---------- create ----------
@@ -176,30 +227,53 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
     return { verdict, captured: false, line };
   }
 
+  const invoiceId = invoiceIdFor(order.orderId, line.line_id);
+  let cap: Capture;
   try {
-    const cap = await deps.paypal.captureAuthorization(
+    cap = await deps.paypal.captureAuthorization(
       line.auth_id,
       line.amount_cents,
       false,
       `cap-${order.orderId}-${line.line_id}`,
+      invoiceId,
     );
-    if (cap.status === "COMPLETED") {
-      // Record the charge immediately; tracking is best effort after this (review 1.3, 1.4).
-      line.state = "CAPTURED";
-      line.capture_id = cap.id;
-      logEvent(order, `CAPTURED ${line.line_id} ${cap.id}`);
-    } else {
-      line.state = "CAPTURE_FAILED";
-      line.capture_id = cap.id;
-      line.error = `PayPal capture status ${cap.status}${cap.status_details?.reason ? ` (${cap.status_details.reason})` : ""}`;
-      logEvent(order, `CAPTURE_NOT_COMPLETED ${line.line_id} ${cap.status}`);
-      return { verdict, captured: false, capture_id: cap.id, line };
-    }
   } catch (err) {
+    if (!isUncertain(err) && !isDuplicateInvoice(err)) {
+      // PayPal clearly refused (e.g. AUTHORIZATION_VOIDED): no money moved.
+      line.state = "CAPTURE_FAILED";
+      line.error = `PayPal refused the charge (${err instanceof PayPalError ? err.issue ?? err.status : "error"}). Do not ship.`;
+      logEvent(order, `CAPTURE_REFUSED ${line.line_id} ${line.error}`);
+      return { verdict, captured: false, line };
+    }
+    // Timeout, 5xx, or "invoice already used": PayPal may have taken the money.
+    // Ask PayPal's own record instead of guessing (risk R-P3).
+    logEvent(order, `CAPTURE_UNCERTAIN ${line.line_id}, checking PayPal`);
+    const found = await lookupCapture(order.orderId, invoiceId, deps);
+    if (found === "unreachable" || found === null) {
+      line.state = "CAPTURE_FAILED";
+      line.capture_uncertain = true;
+      line.error = UNCERTAIN_MESSAGE;
+      logEvent(order, `CAPTURE_UNCONFIRMED ${line.line_id} (${found === null ? "not found yet" : "PayPal unreachable"})`);
+      return { verdict, captured: false, line };
+    }
+    cap = found;
+    logEvent(order, `CAPTURE_FOUND_BY_LOOKUP ${line.line_id} ${cap.id} ${cap.status}`);
+  }
+
+  if (cap.status === "COMPLETED") {
+    // Record the charge immediately; tracking is best effort after this (review 1.3, 1.4).
+    line.state = "CAPTURED";
+    line.capture_id = cap.id;
+    line.capture_uncertain = undefined;
+    logEvent(order, `CAPTURED ${line.line_id} ${cap.id}`);
+  } else {
     line.state = "CAPTURE_FAILED";
-    line.error = err instanceof PayPalError ? `PayPal: ${err.issue ?? err.status}` : "Capture request failed";
-    logEvent(order, `CAPTURE_ERROR ${line.line_id} ${line.error}`);
-    return { verdict, captured: false, line };
+    line.capture_id = cap.id;
+    // A PENDING capture may still complete, so close must check it again before releasing.
+    if (cap.status === "PENDING") line.capture_uncertain = true;
+    line.error = `PayPal capture status ${cap.status}${cap.status_details?.reason ? ` (${cap.status_details.reason})` : ""}. Do not ship.`;
+    logEvent(order, `CAPTURE_NOT_COMPLETED ${line.line_id} ${cap.status}`);
+    return { verdict, captured: false, capture_id: cap.id, line };
   }
 
   try {
@@ -222,6 +296,7 @@ export async function closeOrder(orderId: string, deps: Deps = defaultDeps()): P
   if (order.lines.some((l) => l.state === "SHIPPED")) {
     throw new HttpError(409, "still_processing", { message: "A part is still being checked. Try again in a moment." });
   }
+  await settleUncertain(order, deps);
 
   // Void only authorisations that still hold uncaptured money (review 1.6).
   // Voiding a fully captured authorisation fails at PayPal, so those are skipped.

@@ -48,6 +48,8 @@ export type Line = {
   shipped_model?: string;
   verdict?: ShipVerdict;
   error?: string;
+  /** true while we cannot tell whether PayPal took the money for this line (risk R-P3). */
+  capture_uncertain?: boolean;
 };
 
 export type Order = {
