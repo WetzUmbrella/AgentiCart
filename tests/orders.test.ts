@@ -1,8 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { authorizeOrder, closeOrder, createOrder, shipLine, type Deps } from "@/lib/orders";
+import {
+  authorizeOrder,
+  closeOrder,
+  createOrder,
+  resetOrderSafely,
+  shipLine,
+  sweepStale,
+  type Deps,
+} from "@/lib/orders";
 import { mockPayPal, mockCapturedCents, mockIsVoided } from "@/lib/paypal-mock";
 import { PayPalError } from "@/lib/paypal";
-import { orders, resetOrder } from "@/lib/store";
+import { orders, pruneOld, resetOrder } from "@/lib/store";
 import type { Line, ShipVerdict } from "@/lib/types";
 
 function exactStub(line: Line, shipped: string): Promise<ShipVerdict> {
@@ -187,12 +195,108 @@ describe("close", () => {
     expect(o.released_cents).toBe(0);
   });
 
-  it("carries on when a void fails", async () => {
-    const deps = makeDeps({ paypal: { ...mockPayPal, voidAuthorization: async () => Promise.reject(new Error("x")) } });
+  it("never reports money as released when the void failed, and a retry finishes the job (R-P4)", async () => {
+    const refuse = new PayPalError(422, JSON.stringify({ details: [{ issue: "CANNOT_BE_VOIDED" }] }), "void");
+    const failing = makeDeps({ paypal: { ...mockPayPal, voidAuthorization: async () => Promise.reject(refuse) } });
+    const id = await authorised(failing);
+    await expect(closeOrder(id, failing)).rejects.toMatchObject({ status: 502, message: "release_failed" });
+    const open = orders.get(id)!;
+    expect(open.status).toBe("AUTHORISED");
+    expect(open.released_cents).toBeUndefined();
+    expect(open.lines.every((l) => l.state === "AUTHORISED")).toBe(true);
+    expect(open.events.some((e) => e.includes("VOID_FAILED"))).toBe(true);
+
+    const o = await closeOrder(id, makeDeps()); // PayPal cooperates on the retry
+    expect(o.status).toBe("CLOSED");
+    expect(o.lines.every((l) => l.state === "VOIDED")).toBe(true);
+    expect(o.released_cents).toBe(22499 + 21800 + 19600);
+  });
+
+  it("treats a void whose reply was lost as done, after checking PayPal (R-P4)", async () => {
+    const deps = makeDeps({
+      paypal: {
+        ...mockPayPal,
+        voidAuthorization: async (...args) => {
+          await mockPayPal.voidAuthorization(...args);
+          throw new PayPalError(0, "timeout", "void");
+        },
+      },
+    });
     const id = await authorised(deps);
     const o = await closeOrder(id, deps);
     expect(o.status).toBe("CLOSED");
-    expect(o.events.some((e) => e.includes("VOID_FAILED"))).toBe(true);
+    expect(o.events.some((e) => e.includes("VOID_CONFIRMED_BY_LOOKUP"))).toBe(true);
+  });
+});
+
+describe("unconfirmed holds (R-P5)", () => {
+  it("keeps the authorisation ID so close can release it, and never charges the line", async () => {
+    const pending = makeDeps({
+      paypal: {
+        ...mockPayPal,
+        authorizeOrder: async (orderId, requestId) => {
+          const r = await mockPayPal.authorizeOrder(orderId, requestId);
+          return {
+            ...r,
+            purchase_units: r.purchase_units.map((u) => ({
+              ...u,
+              payments: { authorizations: (u.payments?.authorizations ?? []).map((a) => ({ ...a, status: "PENDING" })) },
+            })),
+          };
+        },
+      },
+    });
+    const created = await createOrder(LINES, pending);
+    const o = await authorizeOrder(created.orderId, pending);
+    expect(o.status).toBe("CREATED");
+    expect(o.lines.every((l) => l.state === "IN_BUNDLE" && l.auth_id)).toBe(true);
+    await expect(ship(o.orderId, "line-2", "SM58-LC", pending)).rejects.toMatchObject({ status: 409 });
+
+    const closed = await closeOrder(o.orderId, makeDeps());
+    expect(closed.status).toBe("CLOSED");
+    expect(closed.lines.every((l) => l.state === "VOIDED")).toBe(true);
+    expect(mockIsVoided(closed.lines[0].auth_id!)).toBe(true);
+  });
+});
+
+describe("auto-close and safe reset (R-S2)", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it("releases and closes orders open for 24 h; never deletes an open order", async () => {
+    const deps = makeDeps();
+    const old = await authorised(deps);
+    const fresh = await authorised(deps);
+    orders.get(old)!.created_at = Date.now() - DAY - 60_000;
+
+    pruneOld(); // must not delete the old order: it still holds money
+    expect(orders.has(old)).toBe(true);
+
+    expect(await sweepStale(deps)).toEqual([old]);
+    expect(orders.get(old)!.status).toBe("CLOSED");
+    expect(mockIsVoided(orders.get(old)!.lines[0].auth_id!)).toBe(true);
+    expect(orders.get(fresh)!.status).toBe("AUTHORISED");
+
+    pruneOld(Date.now() + DAY + 60_000); // a day after closing, the closed order is forgotten
+    expect(orders.has(old)).toBe(false);
+    expect(orders.has(fresh)).toBe(true); // still open, so still kept
+  });
+
+  it("'Start over' releases the hold before forgetting the order", async () => {
+    const deps = makeDeps();
+    const id = await authorised(deps);
+    const authId = orders.get(id)!.lines[0].auth_id!;
+    expect(await resetOrderSafely(id, deps)).toEqual({ cleared: true });
+    expect(orders.has(id)).toBe(false);
+    expect(mockIsVoided(authId)).toBe(true);
+  });
+
+  it("'Start over' keeps an order whose hold could not be released", async () => {
+    const failing = makeDeps({
+      paypal: { ...mockPayPal, voidAuthorization: async () => Promise.reject(new PayPalError(503, "{}", "void")) },
+    });
+    const id = await authorised(failing);
+    expect(await resetOrderSafely(id, failing)).toEqual({ cleared: false, deferred: true });
+    expect(orders.has(id)).toBe(true);
   });
 });
 

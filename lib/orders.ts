@@ -4,8 +4,8 @@ import { HttpError, expired } from "./errors";
 import { toCents } from "./money";
 import { getPayPal, isUncertain, PayPalError, type Capture, type PayPalApi, type PurchaseUnit } from "./paypal";
 import { checkShippedModel as realCheck } from "./ai";
-import { getOrder, logEvent, saveOrder } from "./store";
-import type { Line, Order, ShipVerdict } from "./types";
+import { getOrder, logEvent, orders, resetOrder, saveOrder } from "./store";
+import type { Line, LineState, Order, ShipVerdict } from "./types";
 
 /**
  * Every money decision in AgentCart happens in this file, in server code.
@@ -161,7 +161,12 @@ export async function authorizeOrder(orderId: string, deps: Deps = defaultDeps()
       }
       logEvent(order, `AUTHORISED ${ref} ${auth.id}`);
     } else {
-      for (const l of unitLines) l.error = `Authorisation status ${auth?.status ?? "missing"}`;
+      for (const l of unitLines) {
+        // Keep the ID even though the hold is not confirmed, so close can still release whatever
+        // PayPal is holding (risk R-P5). The line stays IN_BUNDLE, so it can never be charged.
+        if (auth) l.auth_id = auth.id;
+        l.error = `PayPal has not confirmed the hold (status ${auth?.status ?? "missing"}). This part cannot be charged.`;
+      }
       logEvent(order, `AUTHORISATION_NOT_CREATED ${ref} ${auth?.status ?? "missing"}`);
     }
   }
@@ -303,25 +308,130 @@ export async function closeOrder(orderId: string, deps: Deps = defaultDeps()): P
   const byAuth = new Map<string, Line[]>();
   for (const l of order.lines) if (l.auth_id) byAuth.set(l.auth_id, [...(byAuth.get(l.auth_id) ?? []), l]);
 
+  const released = new Set(order.voided_auth_ids ?? []); // voided on an earlier attempt: never void twice
+  const failed: string[] = [];
   for (const [authId, ls] of byAuth) {
-    const holdsMoney = ls.some((l) => l.state === "AUTHORISED" || l.state === "NOT_CHARGED" || l.state === "CAPTURE_FAILED");
-    if (!holdsMoney) continue;
-    try {
-      await deps.paypal.voidAuthorization(authId, `void-${authId}`);
-      logEvent(order, `VOIDED ${authId}`);
-    } catch (err) {
-      // Carry on with the other authorisations; never stop half-way.
-      logEvent(order, `VOID_FAILED ${authId} ${err instanceof PayPalError ? err.issue ?? err.status : ""}`);
-    }
+    if (released.has(authId) || !ls.some(holdsMoney)) continue;
+    const outcome = await releaseAuthorization(authId, order, deps);
+    if (outcome === "released") released.add(authId);
+    else if (outcome === "failed") failed.push(authId); // carry on with the others; never stop half-way
+  }
+  order.voided_auth_ids = [...released];
+  // Lines whose hold PayPal confirmed as voided are VOIDED now, even if another release failed,
+  // so nobody tries to ship (and charge) them against a voided authorisation.
+  for (const l of order.lines) {
+    if ((l.state === "AUTHORISED" || l.state === "IN_BUNDLE") && l.auth_id && released.has(l.auth_id)) l.state = "VOIDED";
   }
 
-  for (const l of order.lines) if (l.state === "AUTHORISED") l.state = "VOIDED";
+  // Risk R-P4: only say "released" for money PayPal confirmed it released.
+  if (failed.length > 0) {
+    throw new HttpError(502, "release_failed", {
+      message:
+        "PayPal did not confirm that the held money was released, so the order is still open. Nothing extra was charged. Press Finish again.",
+      order,
+    });
+  }
+
   order.released_cents = order.lines
+    .filter((l) => l.auth_id && released.has(l.auth_id))
     .filter((l) => l.state === "VOIDED" || l.state === "NOT_CHARGED" || l.state === "CAPTURE_FAILED")
     .reduce((s, l) => s + l.amount_cents, 0);
   order.status = "CLOSED";
+  order.closed_at = Date.now();
   logEvent(order, "CLOSED");
   return order;
+}
+
+/** Line states whose share of the hold is still reserved at PayPal. */
+const HOLDING: ReadonlySet<LineState> = new Set<LineState>(["AUTHORISED", "NOT_CHARGED", "CAPTURE_FAILED"]);
+
+/** An IN_BUNDLE line only holds money if PayPal gave it an (unconfirmed) authorisation (R-P5). */
+const holdsMoney = (l: Line): boolean => (l.state === "IN_BUNDLE" ? Boolean(l.auth_id) : HOLDING.has(l.state));
+
+const issueOf = (err: unknown) => (err instanceof PayPalError ? err.issue ?? `HTTP ${err.status}` : "error");
+
+/**
+ * Voids one authorisation. If the void call errors, PayPal's record decides: the void may have
+ * worked with its reply lost, or an earlier attempt may already have voided it.
+ */
+async function releaseAuthorization(
+  authId: string,
+  order: Order,
+  deps: Deps,
+): Promise<"released" | "nothing_held" | "failed"> {
+  try {
+    await deps.paypal.voidAuthorization(authId, `void-${authId}`);
+    logEvent(order, `VOIDED ${authId}`);
+    return "released";
+  } catch (err) {
+    try {
+      const a = await deps.paypal.getAuthorization(authId);
+      if (a.status === "VOIDED") {
+        logEvent(order, `VOID_CONFIRMED_BY_LOOKUP ${authId}`);
+        return "released";
+      }
+      if (a.status === "CAPTURED" || a.status === "EXPIRED") {
+        logEvent(order, `NOTHING_LEFT_TO_RELEASE ${authId} ${a.status}`);
+        return "nothing_held";
+      }
+      logEvent(order, `VOID_FAILED ${authId} ${issueOf(err)} (authorisation ${a.status})`);
+    } catch {
+      logEvent(order, `VOID_FAILED ${authId} ${issueOf(err)} (status unknown)`);
+    }
+    return "failed";
+  }
+}
+
+// ---------- auto-close and safe reset (risk R-S2) ----------
+
+/** Open orders are closed (their holds voided) after 24 h, well inside PayPal's 3-day honour period. */
+export const AUTO_CLOSE_MS = 24 * 60 * 60 * 1000;
+
+/** Closes every open order older than AUTO_CLOSE_MS. A failed close is retried on the next sweep. */
+export async function sweepStale(deps: Deps = defaultDeps(), now = Date.now()): Promise<string[]> {
+  const closed: string[] = [];
+  for (const o of [...orders.values()]) {
+    if (o.status === "CLOSED" || now - o.created_at < AUTO_CLOSE_MS) continue;
+    try {
+      await closeOrder(o.orderId, deps);
+      logEvent(o, "AUTO_CLOSED after 24 h");
+      closed.push(o.orderId);
+    } catch (err) {
+      console.error(`Auto-close of ${o.orderId} failed; the next sweep retries it.`, err);
+    }
+  }
+  return closed;
+}
+
+let lastSweep = 0;
+
+/** Called by routes; runs the sweep at most once a minute, in the background. */
+export function maybeSweep(now = Date.now()): void {
+  if (now - lastSweep < 60_000) return;
+  lastSweep = now;
+  sweepStale().catch((err) => console.error("Auto-close sweep failed", err));
+}
+
+/**
+ * "Start over": release the order's hold, then forget it. If the release fails, the order is kept
+ * so the 24 h sweep can release it later; it is never forgotten while PayPal still holds money.
+ */
+export async function resetOrderSafely(
+  orderId: string,
+  deps: Deps = defaultDeps(),
+): Promise<{ cleared: boolean; deferred?: boolean }> {
+  const o = getOrder(orderId);
+  if (!o) return { cleared: false };
+  if (o.status !== "CLOSED") {
+    try {
+      await closeOrder(orderId, deps);
+    } catch {
+      logEvent(o, "RESET_DEFERRED close failed; auto-close will retry");
+      return { cleared: false, deferred: true };
+    }
+  }
+  resetOrder(orderId);
+  return { cleared: true };
 }
 
 // ---------- webhook ----------
