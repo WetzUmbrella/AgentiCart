@@ -184,7 +184,16 @@ export type ShipInput = {
   carrier?: string;
 };
 
-export type ShipResult = { verdict: ShipVerdict; captured: boolean; capture_id?: string; line: Line };
+/** checks_left: how many more model checks this line may have (0 = no repack left). */
+export type ShipResult = { verdict: ShipVerdict; captured: boolean; capture_id?: string; line: Line; checks_left: number };
+
+/** A wrong variant blocks the line; the merchant gets ONE repack, so two checks in total (risk R-M1). */
+export const MAX_CHECKS = 2;
+
+/** A blocked line (wrong variant) may be checked again; a cancelled ("can't fulfil") line may not. */
+const canRecheck = (l: Line) => l.state === "NOT_CHARGED" && !l.cancel_reason && (l.checks ?? 0) < MAX_CHECKS;
+
+const checksLeft = (l: Line) => (l.state === "NOT_CHARGED" && !l.cancel_reason ? Math.max(0, MAX_CHECKS - (l.checks ?? 0)) : 0);
 
 const TRACKING = /^[A-Za-z0-9-]{1,40}$/;
 
@@ -193,16 +202,21 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
   if (order.status === "CLOSED") throw new HttpError(409, "order_closed");
   const line = lineOf(order, input.line_id);
 
-  // Guard: only an AUTHORISED line can be shipped. Stops double charges and stops a
-  // NOT_CHARGED line from being charged later (review 1.2).
-  if (line.state !== "AUTHORISED") {
+  // Guard: only an AUTHORISED line, or a blocked line with its one repack left, can be checked.
+  // Stops double charges and stops a cancelled or twice-blocked line being charged (review 1.2).
+  if (line.state !== "AUTHORISED" && !canRecheck(line)) {
     throw new HttpError(409, "line_not_authorised", { state: line.state, line });
+  }
+  if (line.auth_id && order.voided_auth_ids?.includes(line.auth_id)) {
+    throw new HttpError(409, "line_not_authorised", { state: "VOIDED", line }); // its hold is already released
   }
   const tracking = String(input.tracking_number ?? "").trim();
   if (!TRACKING.test(tracking)) throw new HttpError(400, "bad_tracking_number");
 
   // Claim the line before any await, so a second click hits the guard above.
+  const previous = line.state;
   line.state = "SHIPPED";
+  line.checks = (line.checks ?? 0) + 1;
   line.shipped_model = String(input.shipped_model ?? "").slice(0, 64);
   line.error = undefined;
   logEvent(order, `SHIPPED ${line.line_id} "${line.shipped_model}"`);
@@ -212,7 +226,8 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
     verdict = await deps.checkShipped(line, String(input.shipped_model ?? ""));
   } catch (err) {
     // Nothing was charged, so it is safe to let the merchant try again (review 1.5).
-    line.state = "AUTHORISED";
+    line.state = previous;
+    line.checks = (line.checks ?? 1) - 1;
     line.error = "The model check failed. Nothing was charged. Try again.";
     logEvent(order, `CHECK_FAILED ${line.line_id}`);
     throw err instanceof HttpError ? err : new HttpError(502, "check_failed", { message: line.error });
@@ -222,14 +237,14 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
 
   if (verdict.action !== "CAPTURE") {
     line.state = "NOT_CHARGED";
-    logEvent(order, `NOT_CHARGED ${line.line_id}`);
-    return { verdict, captured: false, line };
+    logEvent(order, `NOT_CHARGED ${line.line_id} (check ${line.checks} of ${MAX_CHECKS})`);
+    return { verdict, captured: false, line, checks_left: checksLeft(line) };
   }
 
   if (!line.auth_id) {
     line.state = "CAPTURE_FAILED";
     line.error = "No authorisation on this line.";
-    return { verdict, captured: false, line };
+    return { verdict, captured: false, line, checks_left: 0 };
   }
 
   const invoiceId = invoiceIdFor(order.orderId, line.line_id);
@@ -248,7 +263,7 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
       line.state = "CAPTURE_FAILED";
       line.error = `PayPal refused the charge (${err instanceof PayPalError ? err.issue ?? err.status : "error"}). Do not ship.`;
       logEvent(order, `CAPTURE_REFUSED ${line.line_id} ${line.error}`);
-      return { verdict, captured: false, line };
+      return { verdict, captured: false, line, checks_left: 0 };
     }
     // Timeout, 5xx, or "invoice already used": PayPal may have taken the money.
     // Ask PayPal's own record instead of guessing (risk R-P3).
@@ -259,7 +274,7 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
       line.capture_uncertain = true;
       line.error = UNCERTAIN_MESSAGE;
       logEvent(order, `CAPTURE_UNCONFIRMED ${line.line_id} (${found === null ? "not found yet" : "PayPal unreachable"})`);
-      return { verdict, captured: false, line };
+      return { verdict, captured: false, line, checks_left: 0 };
     }
     cap = found;
     logEvent(order, `CAPTURE_FOUND_BY_LOOKUP ${line.line_id} ${cap.id} ${cap.status}`);
@@ -278,7 +293,7 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
     if (cap.status === "PENDING") line.capture_uncertain = true;
     line.error = `PayPal capture status ${cap.status}${cap.status_details?.reason ? ` (${cap.status_details.reason})` : ""}. Do not ship.`;
     logEvent(order, `CAPTURE_NOT_COMPLETED ${line.line_id} ${cap.status}`);
-    return { verdict, captured: false, capture_id: cap.id, line };
+    return { verdict, captured: false, capture_id: cap.id, line, checks_left: 0 };
   }
 
   try {
@@ -290,7 +305,7 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
     line.tracking_number = tracking; // keep it in our store so the UI can still show it
     logEvent(order, `TRACKING_FAILED ${line.line_id} ${err instanceof Error ? err.message.slice(0, 120) : ""}`);
   }
-  return { verdict, captured: true, capture_id: line.capture_id, line };
+  return { verdict, captured: true, capture_id: line.capture_id, line, checks_left: 0 };
 }
 
 // ---------- can't fulfil (risk R-M2) ----------
@@ -305,7 +320,10 @@ export function cancelLine(input: CancelInput): { line: Line } {
   const order = load(input.orderId);
   if (order.status === "CLOSED") throw new HttpError(409, "order_closed");
   const line = lineOf(order, input.line_id);
-  if (line.state !== "AUTHORISED") throw new HttpError(409, "line_not_authorised", { state: line.state, line });
+  // A held line, or a blocked line (wrong variant) the merchant cannot repack, can be cancelled.
+  if (line.state !== "AUTHORISED" && !canRecheck(line)) {
+    throw new HttpError(409, "line_not_authorised", { state: line.state, line });
+  }
   const reason =
     String(input.reason ?? "")
       .replace(/[^A-Za-z0-9 .,'()-]/g, "")

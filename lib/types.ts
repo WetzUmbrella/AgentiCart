@@ -52,6 +52,8 @@ export type Line = {
   capture_uncertain?: boolean;
   /** Set when the merchant pressed "Can't fulfil" (out of stock): the line is never charged. */
   cancel_reason?: string;
+  /** Model checks done on this line. A wrong variant allows one repack: two checks at most. */
+  checks?: number;
 };
 
 export type Order = {

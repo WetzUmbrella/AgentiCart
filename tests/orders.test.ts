@@ -103,11 +103,46 @@ describe("ship", () => {
     expect(mockCapturedCents(orders.get(id)!.lines[1].auth_id!)).toBe(21800);
   });
 
-  it("refuses to charge a NOT_CHARGED line later", async () => {
+  it("allows exactly one repack after a wrong variant (R-M1, proposed)", async () => {
+    const deps = makeDeps();
+    const id = await authorised(deps);
+    const first = await ship(id, "line-2", "SM58S", deps);
+    expect(first.line.state).toBe("NOT_CHARGED");
+    expect(first.checks_left).toBe(1);
+    const second = await ship(id, "line-2", "SM58-LC", deps); // merchant repacked the right part
+    expect(second.line.state).toBe("CAPTURED");
+    expect(mockCapturedCents(second.line.auth_id!)).toBe(21800);
+  });
+
+  it("cancels the line for good after a second wrong variant", async () => {
+    const capture = vi.fn(mockPayPal.captureAuthorization);
+    const deps = makeDeps({ paypal: { ...mockPayPal, captureAuthorization: capture } });
+    const id = await authorised(deps);
+    await ship(id, "line-2", "SM58S", deps);
+    const second = await ship(id, "line-2", "SM58S", deps);
+    expect(second.checks_left).toBe(0);
+    await expect(ship(id, "line-2", "SM58-LC", deps)).rejects.toMatchObject({ status: 409 });
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("a blocked line can be cancelled instead of repacked, and then never rechecked", async () => {
     const deps = makeDeps();
     const id = await authorised(deps);
     await ship(id, "line-2", "SM58S", deps);
+    expect(cancelLine({ orderId: id, line_id: "line-2" }).line.cancel_reason).toBeTruthy();
     await expect(ship(id, "line-2", "SM58-LC", deps)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("an AI failure during the repack does not use up the repack", async () => {
+    const deps = makeDeps();
+    const id = await authorised(deps);
+    await ship(id, "line-2", "SM58S", deps);
+    const broken = makeDeps({ checkShipped: () => Promise.reject(new Error("timeout")) });
+    await expect(ship(id, "line-2", "SM58-LC", broken)).rejects.toMatchObject({ status: 502 });
+    const line = orders.get(id)!.lines[1];
+    expect(line.state).toBe("NOT_CHARGED");
+    expect(line.checks).toBe(1);
+    expect((await ship(id, "line-2", "SM58-LC", deps)).line.state).toBe("CAPTURED");
   });
 
   it("blocks a concurrent second click while the first check is running", async () => {
