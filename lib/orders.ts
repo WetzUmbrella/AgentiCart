@@ -293,6 +293,31 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
   return { verdict, captured: true, capture_id: line.capture_id, line };
 }
 
+// ---------- can't fulfil (risk R-M2) ----------
+
+export type CancelInput = { orderId: string; line_id: string; reason?: string };
+
+/**
+ * The merchant cannot supply a held part (out of stock). The line becomes NOT_CHARGED with a reason,
+ * with no AI call and no PayPal call; its share of the hold is released when the order closes.
+ */
+export function cancelLine(input: CancelInput): { line: Line } {
+  const order = load(input.orderId);
+  if (order.status === "CLOSED") throw new HttpError(409, "order_closed");
+  const line = lineOf(order, input.line_id);
+  if (line.state !== "AUTHORISED") throw new HttpError(409, "line_not_authorised", { state: line.state, line });
+  const reason =
+    String(input.reason ?? "")
+      .replace(/[^A-Za-z0-9 .,'()-]/g, "")
+      .trim()
+      .slice(0, 120) || "The merchant cannot fulfil this part.";
+  line.state = "NOT_CHARGED";
+  line.cancel_reason = reason;
+  line.error = undefined;
+  logEvent(order, `CANNOT_FULFIL ${line.line_id}`);
+  return { line };
+}
+
 // ---------- close ----------
 
 export async function closeOrder(orderId: string, deps: Deps = defaultDeps()): Promise<Order> {

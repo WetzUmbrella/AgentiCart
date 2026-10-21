@@ -50,6 +50,8 @@ export type Line = {
   error?: string;
   /** true while we cannot tell whether PayPal took the money for this line (risk R-P3). */
   capture_uncertain?: boolean;
+  /** Set when the merchant pressed "Can't fulfil" (out of stock): the line is never charged. */
+  cancel_reason?: string;
 };
 
 export type Order = {

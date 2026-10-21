@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   authorizeOrder,
+  cancelLine,
   closeOrder,
   createOrder,
   resetOrderSafely,
@@ -389,6 +390,37 @@ describe("uncertain charges (risk R-P3)", () => {
     expect(r.line.state).toBe("CAPTURE_FAILED");
     expect(r.line.capture_uncertain).toBeUndefined();
     expect(getOrder).not.toHaveBeenCalled();
+  });
+});
+
+describe("can't fulfil (R-M2, proposed)", () => {
+  it("cancels a held line with no AI or PayPal call, and close releases it", async () => {
+    const capture = vi.fn(mockPayPal.captureAuthorization);
+    const check = vi.fn(exactStub);
+    const deps = makeDeps({ paypal: { ...mockPayPal, captureAuthorization: capture }, checkShipped: check });
+    const id = await authorised(deps);
+    const { line } = cancelLine({ orderId: id, line_id: "line-2", reason: "Out of stock <b>!" });
+    expect(line.state).toBe("NOT_CHARGED");
+    expect(line.cancel_reason).toBe("Out of stock b");
+    expect(capture).not.toHaveBeenCalled();
+    expect(check).not.toHaveBeenCalled();
+
+    await expect(ship(id, "line-2", "SM58-LC", deps)).rejects.toMatchObject({ status: 409 });
+    const o = await closeOrder(id, deps);
+    expect(o.released_cents).toBe(22499 + 21800 + 19600);
+  });
+
+  it("refuses to cancel a part that was already charged", async () => {
+    const deps = makeDeps();
+    const id = await authorised(deps);
+    await ship(id, "line-2", "SM58-LC", deps);
+    let err: unknown;
+    try {
+      cancelLine({ orderId: id, line_id: "line-2" });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toMatchObject({ status: 409 });
   });
 });
 
