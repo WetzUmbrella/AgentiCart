@@ -45,5 +45,5 @@ const pass = c1.status === "COMPLETED" && c2.status === "COMPLETED";
 evidence(
   "2 Partial captures + void",
   pass,
-  `auth ${auth.id}; captures ${c1.id}=${c1.status}, ${c2.id}=${c2.status}; void after partial: ${voidOk ? "OK" : "FAILED (run test 2b: one purchase unit per line)"}; authorisation now ${authAfter}; invoice_id lookup: ${lookup}. Check the platform account shows $80.00.`,
+  `auth ${auth.id}; captures ${c1.id}=${c1.status}, ${c2.id}=${c2.status}; void after partial: ${voidOk ? "OK" : "FAILED (see risk register: honest 'releases when it expires' wording)"}; authorisation now ${authAfter}; invoice_id lookup: ${lookup}. Check the platform account shows $80.00.`,
 );
