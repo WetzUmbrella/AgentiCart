@@ -1,14 +1,22 @@
 import { config } from "./config";
 import { mockPayPal } from "./paypal-mock";
-import { PayPalError } from "./paypal-error";
+import { PayPalError, isUncertain } from "./paypal-error";
 
-export { PayPalError };
+export { PayPalError, isUncertain };
 
 /**
  * Thin PayPal REST client. Every call that moves money takes a caller-built PayPal-Request-Id,
  * so a retry of the same operation reuses the same key (review 1.1):
  *   auth-${orderId}, cap-${orderId}-${lineId}, void-${authId}, track-${captureId}
+ *
+ * Failure handling (docs/risk-register.md, R-P1 to R-P3):
+ * - Timeout, dropped connection, PayPal 5xx or 429: retried ONCE, with the same PayPal-Request-Id,
+ *   so PayPal answers the repeat with the original result instead of acting twice.
+ *   Requests without a request ID are only retried if they are reads (GET).
+ * - 401 on an API call: the cached token is dropped and the call is retried once with a new token.
+ * - Any clear 4xx answer: not retried; PayPal did not act.
  */
+export const ppTiming = { timeoutMs: 20_000, retryDelayMs: 800 };
 
 export type OrderItem = { name: string; sku: string; quantity: number; unit_cents: number };
 export type PurchaseUnit = { reference_id: string; payee_email?: string; items: OrderItem[] };
@@ -59,26 +67,53 @@ export function buildOrderBody(units: PurchaseUnit[]) {
 
 let cachedToken: { value: string; expires: number } | null = null;
 
-async function getAccessToken(): Promise<string> {
-  if (cachedToken && Date.now() < cachedToken.expires - 60_000) return cachedToken.value;
+/** Test helper: forget the cached OAuth token. */
+export function clearTokenCache(): void {
+  cachedToken = null;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** fetch with a timeout; a request PayPal never answered becomes PayPalError status 0. */
+async function send(url: string, label: string, init: RequestInit): Promise<{ res: Response; text: string }> {
+  try {
+    const res = await fetch(url, { ...init, signal: AbortSignal.timeout(ppTiming.timeoutMs) });
+    return { res, text: await res.text() };
+  } catch (err) {
+    throw new PayPalError(0, err instanceof Error ? `${err.name}: ${err.message}` : String(err), label);
+  }
+}
+
+async function fetchToken(): Promise<string> {
   const id = process.env.PAYPAL_CLIENT_ID;
   const secret = process.env.PAYPAL_CLIENT_SECRET;
-  if (!id || !secret) throw new Error("PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET are not set");
+  if (!id || !secret) throw new PayPalError(401, "PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET are not set", "token");
   const auth = Buffer.from(`${id}:${secret}`).toString("base64");
-  const res = await fetch(`${config.paypalBase}/v1/oauth2/token`, {
+  const { res, text } = await send(`${config.paypalBase}/v1/oauth2/token`, "POST /v1/oauth2/token", {
     method: "POST",
     headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
     body: "grant_type=client_credentials",
-    signal: AbortSignal.timeout(20_000),
   });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`PayPal token failed: ${res.status} ${text}`);
+  // A 401 here means a wrong ID/Secret, or live keys used against the sandbox URL (playbook 12).
+  if (!res.ok) throw new PayPalError(res.status, text, "POST /v1/oauth2/token");
   const data = JSON.parse(text);
   cachedToken = { value: data.access_token, expires: Date.now() + data.expires_in * 1000 };
   return cachedToken.value;
 }
 
-async function pp<T>(path: string, method: string, body?: unknown, requestId?: string): Promise<T> {
+async function getAccessToken(): Promise<string> {
+  if (cachedToken && Date.now() < cachedToken.expires - 60_000) return cachedToken.value;
+  try {
+    return await fetchToken();
+  } catch (err) {
+    // Asking for a token never moves money, so an uncertain failure is always safe to retry once.
+    if (!isUncertain(err)) throw err;
+    await sleep(ppTiming.retryDelayMs);
+    return fetchToken();
+  }
+}
+
+async function ppOnce<T>(path: string, method: string, body?: unknown, requestId?: string): Promise<T> {
   const token = await getAccessToken();
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
@@ -86,16 +121,31 @@ async function pp<T>(path: string, method: string, body?: unknown, requestId?: s
     Prefer: "return=representation",
   };
   if (requestId) headers["PayPal-Request-Id"] = requestId;
-  const res = await fetch(`${config.paypalBase}${path}`, {
+  const { res, text } = await send(`${config.paypalBase}${path}`, `${method} ${path}`, {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(20_000),
   });
-  const text = await res.text();
   // Check status before parsing: an HTML 5xx page would otherwise hide the real error (review 1.21).
   if (!res.ok) throw new PayPalError(res.status, text, `${method} ${path}`);
   return (text ? JSON.parse(text) : {}) as T;
+}
+
+async function pp<T>(path: string, method: string, body?: unknown, requestId?: string): Promise<T> {
+  try {
+    return await ppOnce<T>(path, method, body, requestId);
+  } catch (err) {
+    if (err instanceof PayPalError && err.status === 401) {
+      // Token expired or was revoked early: nothing was processed, so retry once with a fresh token.
+      cachedToken = null;
+      return ppOnce<T>(path, method, body, requestId);
+    }
+    // Only repeat a request PayPal will recognise as a repeat (same request ID), or a plain read.
+    const safeToRepeat = Boolean(requestId) || method === "GET";
+    if (!safeToRepeat || !isUncertain(err)) throw err;
+    await sleep(ppTiming.retryDelayMs);
+    return ppOnce<T>(path, method, body, requestId);
+  }
 }
 
 export const restPayPal: PayPalApi = {
