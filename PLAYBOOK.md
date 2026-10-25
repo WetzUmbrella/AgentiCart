@@ -82,7 +82,7 @@ PayPal AI Hackathon · Written 18 Oct 2026 · Feature freeze **Fri 7 Nov** · Su
 | **A** | **Payments lead** | Everything PayPal: orders, authorise, capture, void, tracking, webhooks, deploy on Render | ______ |
 | **B** | **AI lead** | Gemini prompts, JSON schemas, compatibility audit, shipped-model check, 20-case test script | ______ |
 | **C** | **Front-end lead** | Next.js pages, AG Grid bundle view, PayPal button, merchant console, design | ______ |
-| **D** | **Data, story and QA** | Catalogue and spec sheets, cached forum threads, test-set answers, README, video, Devpost, testing every flow | ______ |
+| **D** | **Data, story and QA** | Catalogue and spec sheets, cached forum threads, test-set answers, README, video, Devpost, testing every flow | Des |
 
 **Pairs that must agree early:**
 
