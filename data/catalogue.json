@@ -10,7 +10,7 @@
     "price_source_url": "https://equipboard.com/items/focusrite-scarlett-2i2-4th-generation",
     "merchant": "merchant_a",
     "listing": { "xlr_inputs": 2 },
-    "spec_file": "specs/if-2i2-4.png",
+    "spec_file": "specs/if-2i2-4.pdf",
     "spec_source_url": "https://userguides.focusrite.com/hc/en-gb/articles/19640392541202-2i2-4th-Gen-Specifications",
     "spec_download_url": null,
     "key_specs": {
@@ -33,7 +33,7 @@
     "price_source_url": "https://www.adorama.com/focusrite-scarlett-solo-4th-gen-usb-audio-interface/p/framsrsolo4g",
     "merchant": "merchant_a",
     "listing": { "xlr_inputs": 1 },
-    "spec_file": "specs/if-solo-4.png",
+    "spec_file": "specs/if-solo-4.pdf",
     "spec_source_url": "https://userguides.focusrite.com/hc/en-gb/articles/17505454908562-Solo-4th-Gen-Specifications",
     "spec_download_url": null,
     "key_specs": {
@@ -56,8 +56,8 @@
     "price_source_url": "https://www.bhphotovideo.com/c/product/1821220-REG/behringer_umc22_audiophile_2x2_usb_audio.html",
     "merchant": "merchant_b",
     "listing": { "xlr_inputs": 1 },
-    "spec_file": "specs/if-umc22.png",
-    "spec_source_url": "https://www.behringer.com/",
+    "spec_file": "specs/if-umc22.pdf",
+    "spec_source_url": "https://www.behringer.com/en/products/0805-AAJ",
     "spec_download_url": null,
     "key_specs": {
       "mic_inputs": "1x combo XLR-1/4 inch TRS mic/line/Hi-Z input",
@@ -78,8 +78,8 @@
     "price_source_url": "https://www.markertek.com/product/beh-uca202/behringer-uca202-u-control-ultra-low-latency-2-in-2-out-usb-audio-interface-with-digital-output",
     "merchant": "merchant_c",
     "listing": { "xlr_inputs": 0 },
-    "spec_file": "specs/if-uca202.png",
-    "spec_source_url": "https://www.behringer.com/",
+    "spec_file": "specs/if-uca202.pdf",
+    "spec_source_url": "https://www.behringer.com/en/products/0805-AAC",
     "spec_download_url": null,
     "key_specs": {
       "inputs": "RCA, unbalanced line inputs",
@@ -100,8 +100,8 @@
     "price_source_url": "https://www.shi.com/product/46756511/Logitech-G-Yeti-Orb-Microphone",
     "merchant": "merchant_c",
     "listing": {},
-    "spec_file": "specs/mic-yeti-orb.png",
-    "spec_source_url": "https://www.logitechg.com/",
+    "spec_file": "specs/mic-yeti-orb.pdf",
+    "spec_source_url": "https://logitechg.com/en-us/products/microphones/yeti-orb-gaming-microphone",
     "spec_download_url": null,
     "key_specs": {
       "element": "condenser",
@@ -187,8 +187,8 @@
     "price_source_url": "https://avlgear.com/collections/rode/products/rode-podmic-usb-versatile-dynamic-broadcast-microphone",
     "merchant": "merchant_b",
     "listing": {},
-    "spec_file": "specs/mic-podmic-usb.png",
-    "spec_source_url": "https://rode.com/",
+    "spec_file": "specs/mic-podmic-usb.pdf",
+    "spec_source_url": "https://rode.com/products/podmic-usb",
     "spec_download_url": null,
     "key_specs": {
       "element": "dynamic",
@@ -208,8 +208,8 @@
     "price_source_url": "https://www.adorama.com/hosa-technology-rean-xlr3f-xlr3m-microphone-cable-10-ft/p/hohmic010",
     "merchant": "merchant_a",
     "listing": {},
-    "spec_file": "specs/cable-hosa-hmic010.png",
-    "spec_source_url": "https://hosatech.com/",
+    "spec_file": "specs/cable-hosa-hmic010.pdf",
+    "spec_source_url": "https://hosatech.com/products/analog-audio/microphone-cables/hmic-000/",
     "spec_download_url": null,
     "key_specs": {
       "ends": "XLR3F to XLR3M",
@@ -228,8 +228,8 @@
     "price_source_url": "https://www.zzounds.com/item--RODPSA1",
     "merchant": "merchant_b",
     "listing": {},
-    "spec_file": "specs/stand-psa1.png",
-    "spec_source_url": "https://rode.com/",
+    "spec_file": "specs/stand-psa1.pdf",
+    "spec_source_url": "https://rode.com/products/psa1",
     "spec_download_url": null,
     "key_specs": {
       "mount_thread": "3/8 inch (retailer listing conflicts on whether a 3/8 to 5/8 adapter is included)",
@@ -268,7 +268,7 @@
     "price_source_url": "https://audio-technica.com/en-us/ath-m50x",
     "merchant": "merchant_a",
     "listing": {},
-    "spec_file": "specs/hp-m50x.png",
+    "spec_file": "specs/hp-m50x.pdf",
     "spec_source_url": "https://audio-technica.com/en-us/ath-m50x",
     "spec_download_url": null,
     "key_specs": {
@@ -288,8 +288,8 @@
     "price_source_url": "https://www.fullcompass.com/prod/029981-beyerdynamic-dt-770-pro-250-closed-back-dynamic-headphones-250-ohm",
     "merchant": "merchant_b",
     "listing": {},
-    "spec_file": "specs/hp-dt770-250.png",
-    "spec_source_url": "https://www.beyerdynamic.com/",
+    "spec_file": "specs/hp-dt770-250.pdf",
+    "spec_source_url": "https://global.beyerdynamic.com/p/dt-770-pro",
     "spec_download_url": null,
     "key_specs": {
       "impedance_ohm": 250,
