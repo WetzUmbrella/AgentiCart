@@ -8,7 +8,10 @@ const SOURCE = "https://github.com/WetzUmbrella/AgentiCart/blob/main";
 const ROWS: [string, string][] = [
   ["PayPal authorise, capture, void, tracking, webhooks", "Real, in the PayPal sandbox (PAYPAL_MODE=sandbox)."],
   ["Compatibility audit", "Real AI (Gemini) reading the manufacturers' spec sheets. Every verdict quotes the sheet."],
-  ["Shipped-model check", "Exact-match code first, then Gemini Flash. A charge needs both the AI and the code to agree."],
+  [
+    "Shipment label check",
+    "Real AI (Gemini Flash) reads a photo of the box label. A charge needs the label, the AI and the merchant's declared model to agree on the exact variant. The demo uses sample labels made by the team.",
+  ],
   ["Product catalogue", "Curated: real products, prices checked on the date shown for each product."],
   ["Bundle order", "Cheapest compatible part per category, checked in a fixed order, so results are repeatable."],
   ["Confidence", "Worked out by our server from checks you can repeat, not the AI rating its own answer."],

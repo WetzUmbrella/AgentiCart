@@ -10,9 +10,12 @@ const MESSAGES: Record<string, string> = {
   expired: "This order expired (the demo server restarted or it was reset). Press Start over.",
   line_not_authorised: "This part was already processed.",
   still_processing: "A part is still being checked. Try again in a moment.",
-  check_failed: "The model check failed. Nothing was charged. Try again.",
+  check_failed: "The label check failed. Nothing was charged. Try again.",
   bad_tracking_number: "Use up to 40 letters, digits or hyphens for the tracking number.",
   ai_daily_cap: "The demo has used its AI budget for today. Try again tomorrow.",
+  ai_timeout: "The AI took too long to answer. Nothing was charged. Try again.",
+  ai_busy: "Google's AI service is busy right now. Nothing was charged. Try again in a minute.",
+  ai_rate_limited: "The AI is busy or rate limited. Wait a minute and try again.",
   spec_missing: "A spec sheet is missing on the server.",
 };
 

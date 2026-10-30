@@ -1,11 +1,15 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { api, ApiError, usd } from "@/lib/client";
+import { preparePhoto, type PreparedPhoto } from "@/lib/image-client";
+import { SAMPLE_LABELS, sampleLabelUrl, type SampleLabel } from "@/lib/sample-labels";
 import type { Order, ShipVerdict, Line } from "@/lib/types";
 import { STATE_LABEL } from "@/lib/labels";
 
 type ShipResult = { verdict: ShipVerdict; captured: boolean; capture_id?: string; line: Line };
+
+const photoUrl = (orderId: string, lineId: string) => `/api/orders/${orderId}/photo/${lineId}`;
 
 function Console() {
   const params = useSearchParams();
@@ -14,10 +18,21 @@ function Console() {
   const [lineId, setLineId] = useState("");
   const [model, setModel] = useState("");
   const [tracking, setTracking] = useState("");
+  const [photo, setPhoto] = useState<PreparedPhoto | null>(null);
+  // Set only while the photo is one of the team's sample labels (mock AI can read those by id).
+  const [sampleId, setSampleId] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ShipResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
+
+  // The verdict is the moment that matters on video: bring it into view.
+  useEffect(() => {
+    resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [result]);
 
   const refresh = async (id: string) => {
     try {
@@ -57,18 +72,53 @@ function Console() {
     return <p className="notice error">This order expired (the demo server restarted or it was reset). Start again on the Shop page.</p>;
   }
 
+  const attachPhoto = async (blob: Blob, sample: SampleLabel | null) => {
+    setPreparing(true);
+    setError(null);
+    try {
+      setPhoto(await preparePhoto(blob));
+      setSampleId(sample?.id ?? null);
+      if (sample) setModel(sample.declared);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not use that photo.");
+    } finally {
+      setPreparing(false);
+    }
+  };
+
+  const pickSample = async (sample: SampleLabel) => {
+    const res = await fetch(sampleLabelUrl(sample.id));
+    await attachPhoto(await res.blob(), sample);
+  };
+
+  const clearPhoto = () => {
+    setPhoto(null);
+    setSampleId(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!photo) return;
     setBusy(true);
     setError(null);
     setResult(null);
     try {
       const r = await api<ShipResult>("/api/ship", {
-        body: { orderId, line_id: selected, shipped_model: model, tracking_number: tracking, carrier: "Demo Courier" },
+        body: {
+          orderId,
+          line_id: selected,
+          shipped_model: model,
+          tracking_number: tracking,
+          carrier: "Demo Courier",
+          photo: photo.photo,
+          ...(sampleId ? { sample_label: sampleId } : {}),
+        },
       });
       setResult(r);
       setModel("");
       setTracking("");
+      clearPhoto();
       refresh(orderId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Shipping failed.");
@@ -89,10 +139,30 @@ function Console() {
   return (
     <div className="workspace">
       <div className="stack">
+        {result && (
+          <div ref={resultRef} className={`verdict-panel ${result.captured ? "ok" : "no"}`} aria-live="polite">
+            <div className="big">
+              {result.captured ? `Charged ${usd(result.line.amount_cents)}` : "Not charged"}
+            </div>
+            <div className="verdict-evidence">
+              {/* eslint-disable-next-line @next/next/no-img-element -- evidence photo served by our API */}
+              <img src={photoUrl(orderId, result.line.line_id)} alt={`Label photo for ${result.line.name}`} />
+              <div className="stack" style={{ gap: 6 }}>
+                <p>
+                  <strong>Label reads:</strong> {result.verdict.label_text ? `“${result.verdict.label_text}”` : "unreadable"}
+                </p>
+                <p>{result.verdict.reason}</p>
+              </div>
+            </div>
+            {result.line.state === "CAPTURE_FAILED" && <p>{result.line.error}</p>}
+            {result.verdict.mock && <p className="small">Mock AI verdict.</p>}
+          </div>
+        )}
         <div className="panel stack">
           <h1>Mark a part as shipped</h1>
           <p className="muted">
-            Type the exact model printed on the box. The part is charged only if it is the model that was checked.
+            Photograph the label on the box and enter the model you are shipping. The part is charged only if the photo
+            shows exactly the model that was checked.
           </p>
           {order?.status === "CLOSED" ? (
             <p className="notice info">This order is finished. Nothing more can be shipped.</p>
@@ -100,6 +170,45 @@ function Console() {
             <p className="notice info">Every part on this order has been processed. Finish the order to release the rest of the hold.</p>
           ) : (
             <form className="stack" onSubmit={submit}>
+              <fieldset className="photo-field">
+                <legend>Label photo</legend>
+                {photo ? (
+                  <div className="photo-preview">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- local data URL preview */}
+                    <img src={photo.preview} alt="Box label to be checked" />
+                    <button type="button" className="secondary" onClick={clearPhoto}>Remove photo</button>
+                  </div>
+                ) : (
+                  <>
+                    <label className="photo-drop">
+                      <span>{preparing ? "Preparing photo…" : "Take or choose a photo of the box label"}</span>
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        capture="environment"
+                        disabled={preparing}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) attachPhoto(f, null);
+                        }}
+                      />
+                    </label>
+                    <div className="samples">
+                      <span className="small muted">Or use a sample label made for the demo:</span>
+                      <div className="sample-list">
+                        {SAMPLE_LABELS.map((s) => (
+                          <button type="button" key={s.id} className="sample" disabled={preparing} onClick={() => pickSample(s)}>
+                            {/* eslint-disable-next-line @next/next/no-img-element -- small static sample */}
+                            <img src={sampleLabelUrl(s.id)} alt="" />
+                            <span>{s.caption}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </fieldset>
               <div className="form-grid">
                 <label>
                   Part
@@ -118,32 +227,25 @@ function Console() {
                   </select>
                 </label>
                 <label>
-                  Shipped model
+                  Model you are shipping
                   <input type="text" value={model} maxLength={64} required onChange={(e) => setModel(e.target.value)} placeholder="e.g. SM58-LC" />
                 </label>
                 <label>
                   Tracking number
-                  <input type="text" value={tracking} maxLength={40} required pattern="[A-Za-z0-9-]{1,40}" onChange={(e) => setTracking(e.target.value)} placeholder="e.g. DEMO123" />
+                  <input type="text" value={tracking} maxLength={40} required pattern="[A-Za-z0-9\-]{1,40}" onChange={(e) => setTracking(e.target.value)} placeholder="e.g. DEMO123" />
                 </label>
               </div>
               <div className="row">
-                <button type="submit" disabled={busy || !selected}>{busy ? "Checking the model…" : "Mark shipped"}</button>
+                <button type="submit" disabled={busy || preparing || !selected || !photo}>
+                  {busy ? "Reading the label…" : "Mark shipped"}
+                </button>
+                {!photo && <span className="small muted">Add a label photo first.</span>}
               </div>
             </form>
           )}
           {error && <p className="notice error" role="alert">{error}</p>}
         </div>
 
-        {result && (
-          <div className={`verdict-panel ${result.captured ? "ok" : "no"}`} aria-live="polite">
-            <div className="big">
-              {result.captured ? `Charged ${usd(result.line.amount_cents)}` : "Not charged"}
-            </div>
-            <p>{result.verdict.reason}</p>
-            {result.line.state === "CAPTURE_FAILED" && <p>{result.line.error}</p>}
-            {result.verdict.mock && <p className="small">Mock AI verdict.</p>}
-          </div>
-        )}
       </div>
 
       <aside className="panel stack">

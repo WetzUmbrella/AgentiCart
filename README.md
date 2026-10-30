@@ -12,7 +12,7 @@ Built for the PayPal AI Hackathon.
 - Log in to the PayPal popup with the judge sandbox account: `[judge email]` / `[judge password]`
 - The first load can take about a minute if the free server was asleep.
 - Type a goal (the default is "Podcast setup for 2 people under $900") and press **Build my bundle**.
-- Approve with PayPal, then open the **merchant console** from the link on the page and ship parts. Try `SM58S` for the Shure line to see a part that is not charged.
+- Approve with PayPal, then open the **merchant console** from the link on the page and ship parts with a photo of the box label. Use the sample labels: the `SM58S` label on the Shure line, or the blurry label, shows a part that is not charged.
 - Press **Finish order** to release the rest of the hold. **Start over** clears only your own order.
 
 ## How it works
@@ -22,19 +22,19 @@ Built for the PayPal AI Hackathon.
 3. **Compatibility audit.** For each part, Gemini Pro reads the attached spec sheets and checks it against the parts already chosen: connectors, phantom power, mic inputs, mount threads. Every verdict quotes the spec sheet. Parts are checked in a fixed order (interface, microphones, cables, stands, headphones), cheapest first, so results are repeatable.
 4. **Edit.** The bundle is shown in an AG Grid table. Swap re-checks that row only.
 5. **Approve once.** PayPal Orders v2 with `intent: AUTHORIZE`. Nothing is charged.
-6. **Merchant ships.** The merchant enters the exact model and a tracking number.
-7. **Per-part decision.** A part is captured only if two keys agree: an exact or AI-confirmed match, **and** a code check that the merchant's text contains the verified variant. Otherwise it is never charged.
+6. **Merchant ships.** The merchant photographs the box label, enters the model and a tracking number.
+7. **Per-part decision.** Gemini Flash reads the label photo. A part is captured only if every key agrees: the label is legible, the AI confirms exactly the verified variant, code finds that variant in the text the AI read, **and** code finds it in the merchant's declared model. Otherwise it is never charged. The photo is kept as evidence and the shopper can open it.
 8. **Close.** Remaining authorisations are voided.
 
 ```
 Shopper page (Next.js + AG Grid + PayPal button)      Merchant console (/merchant?order=…)
-          │ goal, swap, approve                                │ shipped model + tracking
+          │ goal, swap, approve                                │ label photo + model + tracking
           ▼                                                    ▼
                     Next.js API routes (server only)
   /api/bundle ─► Gemini Flash (constraints) + catalogue + audit (Gemini Pro, spec sheets attached)
   /api/audit  ─► audit one swapped row
   /api/orders, /authorize ─► PayPal Orders v2 (AUTHORIZE)
-  /api/ship   ─► exact match → else Gemini Flash + variant check
+  /api/ship   ─► Gemini Flash reads the label photo → code checks every key
                  ├─ CAPTURE        ─► capture that line + add tracking
                  └─ DO_NOT_CAPTURE ─► no PayPal call at all
   /api/orders/:id/close ─► void what is still held
@@ -46,7 +46,7 @@ Shopper page (Next.js + AG Grid + PayPal button)      Merchant console (/merchan
 - **No paid placement.** In each category the cheapest part that passes the check wins. Every bundle comes with a receipt listing each catalogue product considered and what happened to it: picked, failed the check, ruled out by its listing, or not needed because a cheaper part already fit (`lib/bundle.ts`).
 - **Reasons you can check.** Every evidence quote is looked up in the spec sheet's own text (PDFs) and linked to the manufacturer's page. Quotes from image spec sheets are marked "not auto-checked", never "found" (`lib/trust.ts`).
 - **Confidence from checks, not self-rating.** Each verdict gets high, medium or low from three signals: quotes found in the sheet, agreement with our hand-checked `key_specs` (which the AI never sees), and the AI's own rating, which can lower the level but never raise it. No percentages. A **low** part is left out of the PayPal approval until the shopper keeps it or swaps it.
-- **The seller is paid only for verified parts.** An ad site is paid on the click. Here PayPal holds the money and each part is captured only after its shipped model matches the part that was checked.
+- **The seller is paid only for verified parts.** An ad site is paid on the click. Here PayPal holds the money and each part is captured only after a photo of its box label shows the part that was checked.
 
 **The AI cannot move money.** It has no PayPal access. It returns JSON; only `lib/orders.ts` calls capture or void, and only after a verified match.
 
@@ -73,7 +73,7 @@ The PayPal Agent Toolkit is **not** used: its `create_order` tool creates captur
 |---|---|
 | PayPal authorise, capture, void, tracking, webhooks | Real, PayPal sandbox |
 | Compatibility audit | Real AI over real manufacturer spec sheets |
-| Shipped-model check | Exact-match code, then Gemini Flash, plus a deterministic variant check |
+| Shipment label check | Real AI (Gemini Flash) reading the label photo, plus deterministic code checks. The demo uses sample label images made by the team (`public/demo-labels/`) |
 | Product catalogue | Curated: real products, prices checked on the date shown for each |
 | Merchants | Sandbox accounts operated by the team through the merchant console |
 
@@ -126,7 +126,7 @@ New → Web Service → this repo. Build `npm install && npm run build`, start `
 ## Production notes
 
 - **Honour period.** PayPal guarantees captures for a limited time after authorising (about 3 days). The demo captures the same day; in production, long shipping times need reauthorisation.
-- **A merchant could type the right model and ship the wrong one.** That is fraud, and PayPal buyer protection and disputes still apply. AgentCart stops honest mistakes and substitutions, which are the common case.
+- **A merchant could photograph the right label and ship the wrong box.** That is fraud, and PayPal buyer protection and disputes still apply. AgentCart stops honest mistakes and substitutions, which are the common case.
 - **Multi-merchant.** One approval paying several sellers depends on PayPal's multi-seller rules; see `docs/go-no-go.md`. The default build pays one platform account.
 
 ## Licence

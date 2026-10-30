@@ -118,6 +118,8 @@ export default function ShopperPage() {
         state,
         payment_note: ol?.state === "CAPTURED" ? undefined : ol?.error ?? ol?.verdict?.reason,
         tracking: ol?.tracking_number,
+        label_text: ol?.verdict ? ol.verdict.label_text ?? "" : undefined,
+        photo_url: ol?.has_photo && orderId ? `/api/orders/${orderId}/photo/${l.line_id}` : undefined,
       };
     });
     for (const r of bundle?.rejected ?? []) {

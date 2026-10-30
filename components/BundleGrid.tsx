@@ -25,6 +25,9 @@ export type GridRow = {
   trust?: Trust;
   state: RowState;
   payment_note?: string;
+  /** What the AI read off the shipment's label photo; "" means unreadable. */
+  label_text?: string;
+  photo_url?: string;
   tracking?: string;
   pinned?: boolean;
 };
@@ -132,6 +135,17 @@ function StateCell(p: CustomCellRendererProps<GridRow>) {
     <span>
       <span className={`state ${p.data.state}`}>{STATE_LABEL[p.data.state]}</span>
       {p.data.payment_note && <span className="quote" style={{ fontStyle: "normal" }}>{p.data.payment_note}</span>}
+      {p.data.label_text !== undefined && (
+        <span className="label-read">
+          Label: {p.data.label_text ? <>&ldquo;{p.data.label_text}&rdquo;</> : "unreadable"}
+          {p.data.photo_url && (
+            <>
+              {" · "}
+              <a href={p.data.photo_url} target="_blank" rel="noreferrer">Photo<span aria-hidden="true"> ↗</span></a>
+            </>
+          )}
+        </span>
+      )}
       {p.data.tracking && <span className="quote" style={{ fontStyle: "normal" }}>Tracking {p.data.tracking}</span>}
     </span>
   );

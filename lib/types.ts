@@ -48,11 +48,18 @@ export type AuditVerdict = {
   cached?: boolean;
 };
 
-/** Shipped-model verdict (5.3, plus matched_variant). line_id is set by code, never by the model. */
+/** A photo of the shipment's box label, as sent by the merchant console (base64, no data: prefix). */
+export type ShipPhoto = { mime: "image/jpeg" | "image/png" | "image/webp"; data: string };
+
+/**
+ * Shipped-model verdict (5.3, plus matched_variant and the label reading). line_id is set by code,
+ * never by the model. label_text is what the AI read off the photo, shown to shopper and merchant.
+ */
 export type ShipVerdict = {
   line_id: string;
   match: boolean;
   matched_variant: string | null;
+  label_text: string | null;
   reason: string;
   action: "CAPTURE" | "DO_NOT_CAPTURE";
   mock?: boolean;
@@ -70,6 +77,8 @@ export type Line = {
   capture_id?: string;
   tracking_number?: string;
   shipped_model?: string;
+  /** True once a label photo is stored for this line (GET /api/orders/:id/photo/:line). */
+  has_photo?: boolean;
   verdict?: ShipVerdict;
   error?: string;
 };

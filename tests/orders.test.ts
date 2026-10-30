@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { authorizeOrder, closeOrder, createOrder, shipLine, type Deps } from "@/lib/orders";
 import { mockPayPal, mockCapturedCents } from "@/lib/paypal-mock";
-import { orders, resetOrder } from "@/lib/store";
-import type { Line, ShipVerdict } from "@/lib/types";
+import { getPhoto, orders, resetOrder } from "@/lib/store";
+import type { Line, ShipPhoto, ShipVerdict } from "@/lib/types";
+
+/** A real 1x1 PNG: the smallest photo parsePhoto accepts. */
+const PHOTO: ShipPhoto = {
+  mime: "image/png",
+  data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+};
 
 function exactStub(line: Line, shipped: string): Promise<ShipVerdict> {
   const ok = shipped === "SM58-LC";
@@ -10,6 +16,7 @@ function exactStub(line: Line, shipped: string): Promise<ShipVerdict> {
     line_id: "ignored-by-code",
     match: ok,
     matched_variant: ok ? "SM58-LC" : null,
+    label_text: shipped,
     reason: ok ? "match" : "different variant",
     action: ok ? "CAPTURE" : "DO_NOT_CAPTURE",
   });
@@ -32,7 +39,7 @@ async function authorised(deps: Deps) {
 }
 
 const ship = (orderId: string, line_id: string, shipped_model: string, deps: Deps) =>
-  shipLine({ orderId, line_id, shipped_model, tracking_number: "DEMO123" }, deps);
+  shipLine({ orderId, line_id, shipped_model, tracking_number: "DEMO123", photo: PHOTO }, deps);
 
 beforeEach(() => orders.clear());
 
@@ -116,6 +123,30 @@ describe("ship", () => {
     const id = await authorised(deps);
     await expect(ship(id, "line-2", "SM58-LC", deps)).rejects.toMatchObject({ status: 502 });
     expect(orders.get(id)!.lines[1].state).toBe("AUTHORISED");
+    expect(orders.get(id)!.lines[1].has_photo).toBe(false);
+    expect(getPhoto(id, "line-2")).toBeUndefined();
+  });
+
+  it("needs a real label photo before claiming the line", async () => {
+    const deps = makeDeps();
+    const id = await authorised(deps);
+    const base = { orderId: id, line_id: "line-2", shipped_model: "SM58-LC", tracking_number: "DEMO123" };
+    await expect(shipLine(base, deps)).rejects.toMatchObject({ status: 400, message: "photo_required" });
+    await expect(shipLine({ ...base, photo: { mime: "image/png", data: "aGVsbG8=" } }, deps)).rejects.toMatchObject({ message: "bad_photo" });
+    await expect(shipLine({ ...base, photo: { ...PHOTO, mime: "image/gif" as ShipPhoto["mime"] } }, deps)).rejects.toMatchObject({ message: "bad_photo" });
+    expect(orders.get(id)!.lines[1].state).toBe("AUTHORISED");
+  });
+
+  it("keeps the label photo as evidence, charged or not, and passes it to the check", async () => {
+    const check = vi.fn(exactStub);
+    const deps = makeDeps({ checkShipped: check });
+    const id = await authorised(deps);
+    await shipLine({ orderId: id, line_id: "line-2", shipped_model: "SM58S", tracking_number: "DEMO1", photo: PHOTO, sample_label: "sm58s" }, deps);
+    expect(check).toHaveBeenCalledWith(expect.objectContaining({ line_id: "line-2" }), "SM58S", PHOTO, "sm58s");
+    expect(orders.get(id)!.lines[1]).toMatchObject({ state: "NOT_CHARGED", has_photo: true });
+    expect(getPhoto(id, "line-2")).toEqual(PHOTO);
+    resetOrder(id);
+    expect(getPhoto(id, "line-2")).toBeUndefined();
   });
 
   it("marks CAPTURE_FAILED when PayPal does not complete the capture", async () => {
@@ -140,7 +171,7 @@ describe("ship", () => {
   it("rejects bad tracking numbers before claiming the line", async () => {
     const deps = makeDeps();
     const id = await authorised(deps);
-    await expect(shipLine({ orderId: id, line_id: "line-2", shipped_model: "SM58-LC", tracking_number: "<script>" }, deps))
+    await expect(shipLine({ orderId: id, line_id: "line-2", shipped_model: "SM58-LC", tracking_number: "<script>", photo: PHOTO }, deps))
       .rejects.toMatchObject({ status: 400 });
     expect(orders.get(id)!.lines[1].state).toBe("AUTHORISED");
   });
