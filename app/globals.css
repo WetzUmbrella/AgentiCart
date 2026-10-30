@@ -106,6 +106,63 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .state.NOT_CHARGED, .state.VOIDED { color: var(--muted); }
 .state.AUTHORISED, .state.SHIPPED { color: var(--held); }
 .quote { display: block; font-style: italic; color: var(--muted); }
+.ag-row.row-confirm { background: #fff6e0 !important; }
+.state.NEEDS_CONFIRM { color: #8a5d00; }
+.state.LEFT_OUT { color: var(--muted); }
+.cell-actions { display: grid; gap: 6px; justify-items: start; }
+
+/* evidence: each quote, whether it was found in the sheet, and its source */
+.evidence { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.evidence q { font-style: italic; color: var(--muted); }
+.qcheck { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.qcheck.found { color: var(--charged); }
+.qcheck.not_found { color: var(--rejected); }
+.qcheck a { font-weight: 600; }
+
+/* trust: a pill that opens to the signals behind it */
+.trust { margin-top: 8px; font-size: 0.85rem; }
+.trust summary {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer; list-style: none;
+  font-weight: 700; padding: 2px 10px; border-radius: 999px; border: 1px solid;
+}
+.trust summary::-webkit-details-marker { display: none; }
+.trust summary::after { content: "▸"; font-size: 0.7rem; }
+.trust[open] summary::after { content: "▾"; }
+.trust.high summary { background: #e3f3eb; color: #155c3d; border-color: #a9d7bf; }
+.trust.medium summary { background: #eef1f4; color: #3c4a57; border-color: var(--line); }
+.trust.low summary { background: #fbeceb; color: #7e2017; border-color: #eab7b2; }
+.trust > p { margin: 8px 0 4px; color: var(--ink); }
+.trust ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.trust li { display: grid; grid-template-columns: 14px 1fr; gap: 6px; color: var(--muted); }
+.trust li.good > span:first-child { color: var(--charged); font-weight: 800; }
+.trust li.bad > span:first-child { color: var(--rejected); font-weight: 800; }
+
+/* the promise: why this is not an ad site */
+.promise { list-style: none; margin: 0; padding: 14px 0 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.promise li { display: grid; gap: 2px; align-content: start; }
+.promise strong { font-stretch: 90%; }
+.promise span { color: var(--muted); font-size: 0.875rem; }
+@media (max-width: 760px) { .promise { grid-template-columns: 1fr; gap: 10px; } }
+
+/* search receipt */
+.receipt-steps { display: grid; }
+.receipt details { border-top: 1px solid var(--line); }
+.receipt summary { display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; flex-wrap: wrap; }
+.receipt-cat { font-weight: 700; min-width: 96px; }
+.receipt-trail { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+.receipt-count { margin-left: auto; }
+.chip { font-size: 0.8rem; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-s); border: 1px solid var(--line); background: #f5f7f9; }
+.chip.picked { background: #e3f3eb; color: #155c3d; border-color: #a9d7bf; }
+.chip.rejected { background: #fbeceb; color: #7e2017; border-color: #eab7b2; }
+.receipt table { margin-bottom: 12px; }
+@media (max-width: 640px) {
+  .receipt summary { display: grid; grid-template-columns: 1fr auto; row-gap: 6px; }
+  .receipt-cat { min-width: 0; }
+  .receipt-trail { grid-column: 1 / -1; order: 3; }
+}
+.receipt tr.outcome-picked .outcome { color: var(--charged); font-weight: 700; }
+.receipt tr.outcome-rejected .outcome { color: var(--rejected); font-weight: 700; }
+.receipt tr.outcome-not_tried td, .receipt tr.outcome-filtered_out td { color: var(--muted); }
 
 /* swap dialog */
 .dialog-backdrop { position: fixed; inset: 0; background: rgba(29, 39, 51, 0.45); display: grid; place-items: center; padding: 16px; z-index: 50; }
@@ -122,3 +179,4 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 table.plain { border-collapse: collapse; width: 100%; }
 table.plain th, table.plain td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.plain .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }

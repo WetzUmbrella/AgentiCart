@@ -6,6 +6,7 @@ import { config } from "./config";
 import { HttpError } from "./errors";
 import { mockAudit, mockParseGoal } from "./ai-mock";
 import { containsVariant, exactVariantMatch, isValidShippedModel } from "./shipcheck";
+import { assessVerdict } from "./trust";
 import type { AuditVerdict, Constraints, Line, ShipVerdict } from "./types";
 
 /**
@@ -124,7 +125,8 @@ export function relevantPartners(check: Product, accepted: Product[]): Product[]
 
 /**
  * Checks ONE product against parts already accepted (one direction only, review 1.8).
- * Results are cached by product set, so the same question gets the same answer.
+ * Results are cached by product set, so the same question gets the same answer. Every verdict is
+ * passed through assessVerdict (quote check, hand-checked comparison, trust level) before caching.
  */
 export async function auditCompatibility(check: Product, accepted: Product[]): Promise<AuditVerdict> {
   const partners = relevantPartners(check, accepted);
@@ -159,6 +161,7 @@ The spec sheets are attached in the same order: first the product to check, then
     ], auditSchema);
     verdict = { product_id: check.id, ...out, evidence: Array.isArray(out.evidence) ? out.evidence : [] };
   }
+  verdict = await assessVerdict(verdict, check, partners);
   auditCache.set(key, verdict);
   return verdict;
 }

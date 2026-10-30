@@ -41,6 +41,13 @@ Shopper page (Next.js + AG Grid + PayPal button)      Merchant console (/merchan
   /api/paypal/webhook   ◄─ PayPal events (signature verified)
 ```
 
+### Why this isn't a sponsored recommendation site
+
+- **No paid placement.** In each category the cheapest part that passes the check wins. Every bundle comes with a receipt listing each catalogue product considered and what happened to it: picked, failed the check, ruled out by its listing, or not needed because a cheaper part already fit (`lib/bundle.ts`).
+- **Reasons you can check.** Every evidence quote is looked up in the spec sheet's own text (PDFs) and linked to the manufacturer's page. Quotes from image spec sheets are marked "not auto-checked", never "found" (`lib/trust.ts`).
+- **Confidence from checks, not self-rating.** Each verdict gets high, medium or low from three signals: quotes found in the sheet, agreement with our hand-checked `key_specs` (which the AI never sees), and the AI's own rating, which can lower the level but never raise it. No percentages. A **low** part is left out of the PayPal approval until the shopper keeps it or swaps it.
+- **The seller is paid only for verified parts.** An ad site is paid on the click. Here PayPal holds the money and each part is captured only after its shipped model matches the part that was checked.
+
 **The AI cannot move money.** It has no PayPal access. It returns JSON; only `lib/orders.ts` calls capture or void, and only after a verified match.
 
 ## PayPal APIs used

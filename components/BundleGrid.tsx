@@ -4,6 +4,7 @@ import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type RowC
 import { useMemo } from "react";
 import { usd } from "@/lib/client";
 import { STATE_LABEL, type RowState } from "@/lib/labels";
+import type { Evidence, Trust } from "@/lib/types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -20,7 +21,8 @@ export type GridRow = {
   amount_cents: number;
   compatible: boolean | null;
   reason: string;
-  quote?: string;
+  evidence: Evidence[];
+  trust?: Trust;
   state: RowState;
   payment_note?: string;
   tracking?: string;
@@ -39,9 +41,10 @@ const theme = themeQuartz.withParams({
 
 const rowClassRules: RowClassRules<GridRow> = {
   "row-rejected": (p) => p.data?.state === "REJECTED",
+  "row-confirm": (p) => p.data?.state === "NEEDS_CONFIRM",
   "row-captured": (p) => p.data?.state === "CAPTURED",
   "row-failed": (p) => p.data?.state === "CAPTURE_FAILED",
-  "row-grey": (p) => p.data?.state === "NOT_CHARGED" || p.data?.state === "VOIDED",
+  "row-grey": (p) => p.data?.state === "NOT_CHARGED" || p.data?.state === "VOIDED" || p.data?.state === "LEFT_OUT",
 };
 
 const cellText = { lineHeight: "1.4", paddingTop: "10px", paddingBottom: "14px", wordBreak: "normal" as const };
@@ -57,9 +60,59 @@ function PartCell(p: CustomCellRendererProps<GridRow>) {
   );
 }
 
+const TRUST_LABEL = { high: "High confidence", medium: "Medium confidence", low: "Low confidence" } as const;
+const QUOTE_LABEL = { found: "Found in spec sheet", not_found: "Not found in spec sheet", unchecked: "Not auto-checked" } as const;
+const SIGNAL_MARK = { good: "✓", bad: "✕", neutral: "–" } as const;
+
+/** Each quote, whether the server found it in the sheet's text, and a link to the source. */
+function EvidenceList({ evidence }: { evidence: Evidence[] }) {
+  const quotes = evidence.filter((e) => e.quote);
+  if (!quotes.length) return null;
+  return (
+    <ul className="evidence">
+      {quotes.map((e, i) => {
+        const check = e.quote_check ?? "unchecked";
+        return (
+          <li key={i}>
+            <q>{e.quote}</q>
+            <span className={`qcheck ${check}`}>
+              {QUOTE_LABEL[check]}
+              {e.source_url && (
+                <>
+                  {" · "}
+                  <a href={e.source_url} target="_blank" rel="noreferrer">Source<span aria-hidden="true"> ↗</span></a>
+                </>
+              )}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** The trust level, expandable to the checkable signals behind it. */
+function TrustBadge({ trust }: { trust?: Trust }) {
+  if (!trust || trust.level === "not_applicable") return null;
+  return (
+    <details className={`trust ${trust.level}`}>
+      <summary>{TRUST_LABEL[trust.level]}</summary>
+      <p>{trust.summary}</p>
+      <ul>
+        {trust.signals.map((sig) => (
+          <li key={sig.key} className={sig.status}>
+            <span aria-hidden="true">{SIGNAL_MARK[sig.status]}</span>
+            <span><strong>{sig.label}:</strong> {sig.detail}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function CheckCell(p: CustomCellRendererProps<GridRow>) {
   if (!p.data || p.data.pinned) return null;
-  const { compatible, reason, quote } = p.data;
+  const { compatible, reason, evidence, trust } = p.data;
   const label = compatible === false ? "Doesn't fit." : compatible === true ? "Fits." : "";
   return (
     <span>
@@ -67,7 +120,8 @@ function CheckCell(p: CustomCellRendererProps<GridRow>) {
         <strong style={{ color: compatible === false ? "var(--rejected)" : "var(--charged)" }}>{label} </strong>
       )}
       {reason}
-      {quote && <span className="quote">Spec sheet: &ldquo;{quote}&rdquo;</span>}
+      <EvidenceList evidence={evidence} />
+      <TrustBadge trust={trust} />
     </span>
   );
 }
@@ -83,23 +137,35 @@ function StateCell(p: CustomCellRendererProps<GridRow>) {
   );
 }
 
-function SwapCell(p: CustomCellRendererProps<GridRow>) {
-  const ctx = p.context as { onSwap: (row: GridRow) => void; canSwap: boolean };
+type GridContext = { onSwap: (row: GridRow) => void; onConfirm: (lineId: string) => void; canSwap: boolean };
+
+function ActionCell(p: CustomCellRendererProps<GridRow>) {
+  const ctx = p.context as GridContext;
   if (!p.data || p.data.pinned || !ctx.canSwap || !p.data.line_id) return null;
+  const row = p.data;
   return (
-    <button className="secondary" style={{ padding: "4px 10px" }} onClick={() => ctx.onSwap(p.data!)}>
-      Swap
-    </button>
+    <span className="cell-actions">
+      {row.state === "NEEDS_CONFIRM" && (
+        <button style={{ padding: "4px 10px" }} onClick={() => ctx.onConfirm(row.line_id!)}>
+          Keep it
+        </button>
+      )}
+      <button className="secondary" style={{ padding: "4px 10px" }} onClick={() => ctx.onSwap(row)}>
+        Swap
+      </button>
+    </span>
   );
 }
 
 export default function BundleGrid({
   rows,
   onSwap,
+  onConfirm,
   canSwap,
 }: {
   rows: GridRow[];
   onSwap: (row: GridRow) => void;
+  onConfirm: (lineId: string) => void;
   canSwap: boolean;
 }) {
   const columnDefs = useMemo<ColDef<GridRow>[]>(
@@ -120,12 +186,12 @@ export default function BundleGrid({
       },
       { field: "reason", headerName: "Compatibility check", flex: 1, minWidth: 220, wrapText: true, autoHeight: true, cellRenderer: CheckCell, cellStyle: cellText },
       { field: "state", headerName: "Payment", width: 168, wrapText: true, autoHeight: true, cellRenderer: StateCell, cellStyle: cellText },
-      { headerName: "", colId: "swap", width: 84, cellRenderer: SwapCell },
+      { headerName: "", colId: "actions", width: 96, cellRenderer: ActionCell, cellStyle: cellText },
     ],
     [],
   );
 
-  const bundleRows = rows.filter((r) => r.state !== "REJECTED");
+  const bundleRows = rows.filter((r) => !["REJECTED", "NEEDS_CONFIRM", "LEFT_OUT"].includes(r.state));
   const pinned: GridRow[] = [
     {
       key: "total",
@@ -137,6 +203,7 @@ export default function BundleGrid({
       amount_cents: bundleRows.reduce((s, r) => s + r.amount_cents, 0),
       compatible: null,
       reason: "",
+      evidence: [],
       state: "NOT_PAID",
       pinned: true,
     },
@@ -153,7 +220,7 @@ export default function BundleGrid({
         getRowId={(p) => p.data.key}
         rowClassRules={rowClassRules}
         pinnedBottomRowData={pinned}
-        context={{ onSwap, canSwap }}
+        context={{ onSwap, onConfirm, canSwap } satisfies GridContext}
         domLayout="autoHeight"
         defaultColDef={{ sortable: false, resizable: true, suppressMovable: true }}
         suppressCellFocus
