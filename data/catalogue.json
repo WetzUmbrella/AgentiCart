@@ -79,7 +79,7 @@
     "merchant": "merchant_c",
     "listing": { "xlr_inputs": 0 },
     "spec_file": "specs/if-uca202.pdf",
-    "spec_source_url": "https://www.behringer.com/en/products/0805-AAC",
+    "spec_source_url": "https://www.behringer.com/en/products/0805-AAC?tab=specifications",
     "spec_download_url": null,
     "key_specs": {
       "inputs": "RCA, unbalanced line inputs",
@@ -188,8 +188,8 @@
     "merchant": "merchant_b",
     "listing": {},
     "spec_file": "specs/mic-podmic-usb.pdf",
-    "spec_source_url": "https://rode.com/products/podmic-usb",
-    "spec_download_url": null,
+    "spec_source_url": "https://edge.rode.com//pdf/products/1045/PodMicUSB%20White_Datasheet_FA.pdf",
+    "spec_download_url": "https://edge.rode.com//pdf/products/1045/PodMicUSB%20White_Datasheet_FA.pdf",
     "key_specs": {
       "element": "dynamic",
       "connector": "USB-C and 3-pin XLR",
@@ -249,7 +249,7 @@
     "merchant": "merchant_c",
     "listing": {},
     "spec_file": "specs/hp-mdr7506.pdf",
-    "spec_source_url": "https://pro.sony/bp_BR/pdf/mdr-7506",
+    "spec_source_url": "https://pro.sony/en_BN/pdf/products/headphones/mdr-7506",
     "spec_download_url": null,
     "key_specs": {
       "impedance_ohm": 63,
