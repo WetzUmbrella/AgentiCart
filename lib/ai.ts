@@ -69,10 +69,34 @@ function thinkingConfig() {
   return {};
 }
 
+const BUSY_RETRIES = 2;
+
+/** Retries Google's temporary 503 "high demand" error; turns 503 and 429 into errors the UI can show. */
+async function generateContent(req: Parameters<GoogleGenAI["models"]["generateContent"]>[0]) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await ai().models.generateContent(req);
+    } catch (err) {
+      const status = (err as { status?: unknown }).status;
+      if (status === 503 && attempt < BUSY_RETRIES) {
+        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+        continue;
+      }
+      if (status === 503) {
+        throw new HttpError(503, "ai_busy", { message: "The AI service is busy. Nothing was charged. Try again in a minute." });
+      }
+      if (status === 429) {
+        throw new HttpError(503, "ai_quota", { message: "The AI quota is used up for now. Nothing was charged." });
+      }
+      throw err;
+    }
+  }
+}
+
 async function generateJson<T>(kind: "pro" | "flash", parts: Part[], schema: Schema): Promise<T> {
   spendCall();
   // No temperature setting: Google advises keeping Gemini 3 models at their default (review 1.11).
-  const res = await ai().models.generateContent({
+  const res = await generateContent({
     model: model(kind),
     contents: [{ role: "user", parts }],
     config: { responseMimeType: "application/json", responseSchema: schema, ...thinkingConfig() },
