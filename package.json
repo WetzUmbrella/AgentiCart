@@ -26,6 +26,7 @@
     "ag-grid-community": "36.2.0",
     "ag-grid-react": "36.2.0",
     "next": "16.4.2",
+    "pdf-parse": "2.4.5",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "zod": "4.6.7"
@@ -36,7 +37,6 @@
     "@types/react-dom": "19.3.0",
     "eslint": "9.39.5",
     "eslint-config-next": "16.4.2",
-    "pdf-parse": "2.4.5",
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "vitest": "5.0.5"

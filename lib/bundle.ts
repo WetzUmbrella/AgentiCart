@@ -1,15 +1,19 @@
-import { catalogue, toPublic, type Category, type Product } from "./catalogue";
+import { catalogue, productName, toPublic, type Category, type Product } from "./catalogue";
 import { auditCompatibility, parseGoal } from "./ai";
 import { config } from "./config";
 import { toCents } from "./money";
-import type { AuditVerdict, BundleLine, BundleResponse, Constraints } from "./types";
+import type { AuditVerdict, BundleLine, BundleResponse, Constraints, SearchCandidate, SearchStep } from "./types";
 
 /**
  * Builds a bundle for a goal. Products always come from the catalogue (the AI never invents them).
  * Categories are audited in a fixed order and each pick is checked only against parts already
  * accepted (review 1.8). Within a category, candidates are tried cheapest first, so the result is
- * reproducible and every rejection on screen is a real audit result.
+ * reproducible and every rejection on screen is a real audit result. The search receipt records
+ * every product considered, so the shopper can see that nothing was placed by payment.
  */
+
+export const RANKING_RULE =
+  "In each category, the cheapest part that passes the compatibility check is picked. No paid placement, no affiliate links, no sponsored products.";
 
 export const AUDIT_ORDER: Category[] = ["interface", "microphone", "cable", "stand", "headphones"];
 
@@ -18,12 +22,24 @@ export function qtyFor(category: Category, hosts: number): number {
   return category === "interface" ? 1 : hosts;
 }
 
-function candidatesFor(category: Category, c: Constraints): Product[] {
-  return catalogue
-    .filter((p) => p.category === category)
-    .filter((p) => category !== "interface" || (p.listing.xlr_inputs ?? 0) >= c.hosts)
-    .sort((a, b) => a.price_usd - b.price_usd || a.id.localeCompare(b.id));
+const byPrice = (a: Product, b: Product) => a.price_usd - b.price_usd || a.id.localeCompare(b.id);
+
+/** Listing rules applied before any audit. Returns why a product is ruled out, or null if it stays in. */
+function listingFilter(p: Product, c: Constraints): string | null {
+  const inputs = p.listing.xlr_inputs ?? 0;
+  if (p.category === "interface" && inputs < c.hosts) {
+    return `Has ${inputs} mic input${inputs === 1 ? "" : "s"}; ${c.hosts} ${c.hosts === 1 ? "person needs" : "people need"} ${c.hosts}.`;
+  }
+  return null;
 }
+
+const candidate = (p: Product, outcome: SearchCandidate["outcome"], note: string): SearchCandidate => ({
+  product_id: p.id,
+  name: productName(p),
+  price_usd: p.price_usd,
+  outcome,
+  note,
+});
 
 export async function buildBundle(goal: string): Promise<BundleResponse> {
   const constraints = await parseGoal(goal);
@@ -32,20 +48,38 @@ export async function buildBundle(goal: string): Promise<BundleResponse> {
   const lines: BundleLine[] = [];
   const rejected: BundleResponse["rejected"] = [];
 
+  const steps: SearchStep[] = [];
+
   for (const category of wanted) {
-    for (const candidate of candidatesFor(category, constraints)) {
-      const verdict: AuditVerdict = await auditCompatibility(candidate, accepted);
+    const inCategory = catalogue.filter((p) => p.category === category).sort(byPrice);
+    const step: SearchStep = { category, candidates: [] };
+    steps.push(step);
+    let picked: Product | null = null;
+    for (const p of inCategory) {
+      const filtered = listingFilter(p, constraints);
+      if (filtered) {
+        step.candidates.push(candidate(p, "filtered_out", filtered));
+        continue;
+      }
+      if (picked) {
+        step.candidates.push(candidate(p, "not_tried", `A cheaper part (${productName(picked)}) already fits.`));
+        continue;
+      }
+      const verdict: AuditVerdict = await auditCompatibility(p, accepted);
       if (verdict.compatible) {
-        accepted.push(candidate);
+        picked = p;
+        accepted.push(p);
         lines.push({
           line_id: `line-${lines.length + 1}`,
-          product: toPublic(candidate),
+          product: toPublic(p),
           qty: qtyFor(category, constraints.hosts),
           verdict,
         });
-        break;
+        step.candidates.push(candidate(p, "picked", "Cheapest part that passed the check."));
+      } else {
+        rejected.push({ product: toPublic(p), verdict });
+        step.candidates.push(candidate(p, "rejected", verdict.reason));
       }
-      rejected.push({ product: toPublic(candidate), verdict });
     }
   }
 
@@ -61,6 +95,7 @@ export async function buildBundle(goal: string): Promise<BundleResponse> {
     constraints,
     lines,
     rejected,
+    search: { rule: RANKING_RULE, catalogue_size: catalogue.length, steps },
     total_cents,
     budget_warning: warnings.length ? warnings.join(" ") : null,
     mock: config.aiMode === "mock",

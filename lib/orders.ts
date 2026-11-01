@@ -4,8 +4,9 @@ import { HttpError, expired } from "./errors";
 import { toCents } from "./money";
 import { getPayPal, isUncertain, PayPalError, type Capture, type PayPalApi, type PurchaseUnit } from "./paypal";
 import { checkShippedModel as realCheck } from "./ai";
-import { getOrder, logEvent, orders, resetOrder, saveOrder } from "./store";
-import type { Line, LineState, Order, ShipVerdict } from "./types";
+import { parsePhoto } from "./photos";
+import { deletePhoto, getOrder, logEvent, orders, resetOrder, saveOrder, savePhoto } from "./store";
+import type { Line, LineState, Order, ShipPhoto, ShipVerdict } from "./types";
 
 /**
  * Every money decision in AgentCart happens in this file, in server code.
@@ -14,7 +15,7 @@ import type { Line, LineState, Order, ShipVerdict } from "./types";
 
 export type Deps = {
   paypal: PayPalApi;
-  checkShipped: (line: Line, shipped: string) => Promise<ShipVerdict>;
+  checkShipped: (line: Line, shipped: string, photo: ShipPhoto, sampleLabelId?: string) => Promise<ShipVerdict>;
 };
 
 const defaultDeps = (): Deps => ({ paypal: getPayPal(), checkShipped: realCheck });
@@ -182,6 +183,10 @@ export type ShipInput = {
   shipped_model: string;
   tracking_number: string;
   carrier?: string;
+  /** Photo of the box label. Required: parts are charged only on photo evidence. */
+  photo?: ShipPhoto;
+  /** Set when the merchant picked one of the team's sample labels (lets mock mode "read" it). */
+  sample_label?: string;
 };
 
 /** checks_left: how many more model checks this line may have (0 = no repack left). */
@@ -212,6 +217,7 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
   }
   const tracking = String(input.tracking_number ?? "").trim();
   if (!TRACKING.test(tracking)) throw new HttpError(400, "bad_tracking_number");
+  const photo = parsePhoto(input.photo);
 
   // Claim the line before any await, so a second click hits the guard above.
   const previous = line.state;
@@ -219,16 +225,22 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
   line.checks = (line.checks ?? 0) + 1;
   line.shipped_model = String(input.shipped_model ?? "").slice(0, 64);
   line.error = undefined;
-  logEvent(order, `SHIPPED ${line.line_id} "${line.shipped_model}"`);
+  // Kept as evidence whether or not the part is charged.
+  savePhoto(order.orderId, line.line_id, photo);
+  line.has_photo = true;
+  logEvent(order, `SHIPPED ${line.line_id} "${line.shipped_model}" with label photo`);
 
   let verdict: ShipVerdict;
   try {
-    verdict = await deps.checkShipped(line, String(input.shipped_model ?? ""));
+    const sample = typeof input.sample_label === "string" ? input.sample_label : undefined;
+    verdict = await deps.checkShipped(line, String(input.shipped_model ?? ""), photo, sample);
   } catch (err) {
     // Nothing was charged, so it is safe to let the merchant try again (review 1.5).
     line.state = previous;
     line.checks = (line.checks ?? 1) - 1;
-    line.error = "The model check failed. Nothing was charged. Try again.";
+    deletePhoto(order.orderId, line.line_id);
+    line.has_photo = false;
+    line.error = "The label check failed. Nothing was charged. Try again.";
     logEvent(order, `CHECK_FAILED ${line.line_id}`);
     throw err instanceof HttpError ? err : new HttpError(502, "check_failed", { message: line.error });
   }
