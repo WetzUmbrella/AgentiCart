@@ -4,7 +4,7 @@
 
 **One file with everything the team needs: what we're building, who does what, and exactly how, step by step.**
 
-PayPal AI Hackathon · Written 18 Oct 2026 · Feature freeze **Fri 7 Nov** · Submit by **Tue 11 Nov** (hard deadline 12 Nov, 12:00pm PT = **13 Nov, 04:00 SGT**)
+PayPal AI Hackathon · Written 18 Oct 2026 · Feature freeze **Sat 7 Nov** · Submit by **Wed 11 Nov** (hard deadline 11 Nov, 12:00pm PT = **13 Nov, 04:00 SGT**)
 
 ---
 
@@ -18,7 +18,7 @@ PayPal AI Hackathon · Written 18 Oct 2026 · Feature freeze **Fri 7 Nov** · Su
 
 **Golden rules:**
 - If a feature isn't in the demo script (section 9), don't build it.
-- If a feature isn't working by **Sat 1 Nov**, cut it.
+- If a feature isn't working by **Sun 1 Nov**, cut it.
 - Never commit secrets. `.env.local` stays on your machine.
 - `main` always works. Work on a branch; merge only after one teammate reviews.
 
@@ -88,10 +88,10 @@ PayPal AI Hackathon · Written 18 Oct 2026 · Feature freeze **Fri 7 Nov** · Su
 
 | Pair | Agree on | By |
 |---|---|---|
-| A + B | The verdict JSON shape (section 5.3) and when captures fire | Tue 21 Oct |
-| B + D | Catalogue and test-set formats (sections 5.1, 5.4) | Mon 20 Oct |
-| A + C | API routes and their request/response shapes (section 5.5) | Tue 21 Oct |
-| D + everyone | Demo script (section 9), run every Sunday | Sun 26 Oct onwards |
+| A + B | The verdict JSON shape (section 5.3) and when captures fire | Wed 21 Oct |
+| B + D | Catalogue and test-set formats (sections 5.1, 5.4) | Tue 20 Oct |
+| A + C | API routes and their request/response shapes (section 5.5) | Wed 21 Oct |
+| D + everyone | Demo script (section 9), run every Sunday | Sun 25 Oct onwards |
 
 **Meetings:**
 - Two 15-minute check-ins a week (Wed and Fri evening): what I finished, what's blocking me.
@@ -103,12 +103,12 @@ PayPal AI Hackathon · Written 18 Oct 2026 · Feature freeze **Fri 7 Nov** · Su
 
 | Week | Dates | Goal | Checkpoint |
 |---|---|---|---|
-| 0 | Sun 18 to Fri 24 Oct | Setup + **5 go/no-go tests** (section 7) | All 5 tests have a pass or fail recorded |
-| 1 | Sat 25 to Fri 31 Oct | Ugly end-to-end loop works once | Goal → bundle → approve → ship → capture/no-capture → void, on screen |
-| 2 | Sat 1 to Fri 7 Nov | UI polish, merchant console, deploy, accuracy run. **Freeze Fri 7 Nov** | A stranger can use the hosted demo unaided |
-| 3 | Sat 8 to Tue 11 Nov | Video, README, Devpost. Fix only what the video exposed | **Submitted Tue 11 Nov** |
+| 0 | Sun 18 to Sat 24 Oct | Setup + **5 go/no-go tests** (section 7) | All 5 tests have a pass or fail recorded |
+| 1 | Sat 25 to Sat 31 Oct | Ugly end-to-end loop works once | Goal → bundle → approve → ship → capture/no-capture → void, on screen |
+| 2 | Sat 1 to Sat 7 Nov | UI polish, merchant console, deploy, accuracy run. **Freeze Sat 7 Nov** | A stranger can use the hosted demo unaided |
+| 3 | Sat 8 to Wed 11 Nov | Video, README, Devpost. Fix only what the video exposed | **Submitted Wed 11 Nov** |
 
-**Cut-off:** anything not working by **Sat 1 Nov** gets cut. No new features after **Fri 7 Nov**.
+**Cut-off:** anything not working by **Sun 1 Nov** gets cut. No new features after **Sat 7 Nov**.
 
 ---
 
@@ -307,7 +307,7 @@ git init && git add . && git commit -m "Initial Next.js app"
 
 **Done when:** you can log into https://www.sandbox.paypal.com as the shopper and as `merchant_a`.
 
-#### A3. Build the PayPal helper `lib/paypal.ts` (Mon 19 to Tue 21 Oct)
+#### A3. Build the PayPal helper `lib/paypal.ts` (Mon 19 to Wed 21 Oct)
 
 Copy this skeleton, then make it work. Every money-moving call sends a unique `PayPal-Request-Id`.
 
@@ -431,7 +431,7 @@ export async function verifyWebhook(headers: Headers, rawBody: string) {
 
 **Done when:** go/no-go tests 1, 2 and 3 (section 7) have been run and the results recorded.
 
-#### A4. Demo state store (Tue 21 Oct)
+#### A4. Demo state store (Wed 21 Oct)
 
 We don't need a database. Use an **in-memory store**, seeded at startup, with a **Reset** button. Judges trying the hosted demo get a clean scenario every time.
 
@@ -452,7 +452,7 @@ export function resetAll() { orders.clear(); }
 
 **Done when:** `POST /api/reset` empties the store and the UI shows a fresh state.
 
-#### A5. API routes (Wed 22 Oct to Fri 31 Oct)
+#### A5. API routes (Thu 22 Oct to Sat 31 Oct)
 
 Build them in this order. Test each one with `curl` before moving on.
 
@@ -481,7 +481,7 @@ curl -X POST http://localhost:3000/api/orders \
 
 **Done when:** the full flow works from curl alone. Create, approve in the browser, authorise, ship a matching line, ship a mismatching line, close. Then check in the sandbox merchant accounts that only the matching line was charged.
 
-#### A6. Deploy on Render and register webhooks (Sat 25 Oct, early on purpose)
+#### A6. Deploy on Render and register webhooks (Sun 25 Oct, early on purpose)
 
 1. https://render.com → sign up with GitHub → **New → Web Service** → pick the `agentcart` repo.
 2. **Build command:** `npm install && npm run build`. **Start command:** `npm start`.
@@ -495,7 +495,7 @@ curl -X POST http://localhost:3000/api/orders \
 
 **Done when:** a capture on the hosted site shows `PAYMENT.CAPTURE.COMPLETED` in the order's event list.
 
-#### A7. Agent Toolkit integration (Mon 27 to Wed 29 Oct)
+#### A7. Agent Toolkit integration (Mon 27 to Thu 29 Oct)
 
 1. `npm install @paypal/agent-toolkit`
 2. Read its README (https://github.com/paypal/agent-toolkit). Find out:
@@ -519,7 +519,7 @@ curl -X POST http://localhost:3000/api/orders \
 
 **Done when:** a 5-line script returns "hello" from Gemini.
 
-#### B2. Compatibility audit `lib/ai.ts` (Mon 20 to Fri 24 Oct)
+#### B2. Compatibility audit `lib/ai.ts` (Mon 20 to Sat 24 Oct)
 
 ```ts
 // lib/ai.ts
@@ -583,7 +583,7 @@ The spec sheets are attached in the same order: first the product to check, then
 
 **Done when:** `auditCompatibility` correctly rejects the phantom-power case from D's test set, with a real quote.
 
-#### B3. Shipped-model check (Sat 25 to Tue 28 Oct)
+#### B3. Shipped-model check (Sat 25 to Wed 28 Oct)
 
 Add `checkShippedModel(line, shipped_model)` to `lib/ai.ts`. Use the Flash model.
 - **Inputs:** the verified product (brand, model, variant and spec sheet) and the text the merchant typed.
@@ -592,7 +592,7 @@ Add `checkShippedModel(line, shipped_model)` to `lib/ai.ts`. Use the Flash model
 
 **Done when:** "SM58-LC" gives CAPTURE, "Shure SM58 LC" gives CAPTURE, and "SM58S" gives DO_NOT_CAPTURE with a sensible reason.
 
-#### B4. Bundle builder `/api/bundle` (Wed 29 Oct to Sat 1 Nov)
+#### B4. Bundle builder `/api/bundle` (Thu 29 Oct to Sun 1 Nov)
 
 1. Use the Flash model to turn the goal into constraints JSON: `{ budget_usd, hosts, categories_needed: [...] }`.
 2. Pick candidate products from `catalogue.json` with plain code (filter by category and budget). **Don't let the AI invent products.**
@@ -601,7 +601,7 @@ Add `checkShippedModel(line, shipped_model)` to `lib/ai.ts`. Use the Flash model
 
 **Done when:** the demo goal returns a full, compatible bundle within budget, with one visible rejection.
 
-#### B5. Accuracy test script (Sun 2 to Wed 5 Nov)
+#### B5. Accuracy test script (Sun 2 to Thu 5 Nov)
 
 1. Create `scripts/run-testset.ts`. For each case in `testset.json`, call `auditCompatibility`, compare with `expected_compatible`, and print a table and a final score.
 2. Run it with `npx tsx scripts/run-testset.ts > results/testset-YYYY-MM-DD.txt`.
@@ -614,7 +614,7 @@ Add `checkShippedModel(line, shipped_model)` to `lib/ai.ts`. Use the Flash model
 
 ### 6C. Person C: front-end lead
 
-#### C1. Layout and pages (Mon 20 to Fri 24 Oct)
+#### C1. Layout and pages (Mon 20 to Sat 24 Oct)
 
 Create three pages:
 
@@ -628,7 +628,7 @@ Put a **Reset demo** button in the header that calls `POST /api/reset`.
 
 **Done when:** all three pages load with placeholder content and you can navigate between them.
 
-#### C2. AG Grid bundle table (Sat 25 to Wed 29 Oct)
+#### C2. AG Grid bundle table (Sat 25 to Thu 29 Oct)
 
 ```tsx
 // components/BundleGrid.tsx
@@ -662,7 +662,7 @@ export default function BundleGrid({ rows, onSwap }: { rows: any[]; onSwap: (lin
 
 **Done when:** the demo bundle shows in the grid with verdicts, and swapping one row re-audits only that row.
 
-#### C3. PayPal button (Thu 30 Oct to Sat 1 Nov)
+#### C3. PayPal button (Fri 30 Oct to Sun 1 Nov)
 
 ```tsx
 // components/PayButton.tsx
@@ -695,7 +695,7 @@ export default function PayButton({ lines, onAuthorised }: { lines: any[]; onAut
 
 **Done when:** clicking the button, logging in as the shopper and approving leaves every line `AUTHORISED` in the grid, with nothing charged in the shopper's sandbox account.
 
-#### C4. Live updates and merchant console (Sun 2 to Wed 5 Nov)
+#### C4. Live updates and merchant console (Sun 2 to Thu 5 Nov)
 
 1. On the shopper page, poll `GET /api/orders/:id` every 2 seconds and update the grid states.
 2. Merchant console form: order ID (dropdown of current orders), line (dropdown), shipped model (text), tracking number (text), carrier (dropdown: Demo Courier).
@@ -704,7 +704,7 @@ export default function PayButton({ lines, onAuthorised }: { lines: any[]; onAut
 
 **Done when:** D can run the whole demo script (section 9) using only the UI.
 
-#### C5. Design polish (Thu 6 to Fri 7 Nov)
+#### C5. Design polish (Thu 6 to Sat 7 Nov)
 
 - One font, one accent colour, consistent spacing.
 - Make the authorised, charged and released amounts readable from 2 metres away; they'll be on video.
@@ -714,7 +714,7 @@ export default function PayButton({ lines, onAuthorised }: { lines: any[]; onAut
 
 ### 6D. Person D: data, story and QA
 
-#### D1. The real story (Sun 18 to Tue 21 Oct)
+#### D1. The real story (Sun 18 to Wed 21 Oct)
 
 1. Ask friends, family and clubs (CCAs, a podcast or streaming society): **"Have you ever bought gear that didn't work with the rest of your setup?"**
 2. Get **one** real story with details: what they bought, what went wrong, what it cost, how long the return took.
@@ -723,7 +723,7 @@ export default function PayButton({ lines, onAuthorised }: { lines: any[]; onAut
 
 **Done when:** one real, permission-given story is in the repo.
 
-#### D2. Catalogue and spec sheets (Mon 20 to Sat 25 Oct)
+#### D2. Catalogue and spec sheets (Mon 20 to Sun 25 Oct)
 
 1. Choose about 25 real products: 6 mics (dynamic, condenser, USB), 6 interfaces (some **with** and some **without** phantom power), 5 cables (XLR, TRS, USB), 4 stands, 4 headphones.
 2. For each, download the **official** spec sheet (PDF) or take a clean screenshot of the official spec page (PNG). Save it in `data/specs/<id>.pdf` or `.png`.
@@ -733,7 +733,7 @@ export default function PayButton({ lines, onAuthorised }: { lines: any[]; onAut
 
 **Done when:** the catalogue has around 25 items, every `spec_file` opens, and B has the file.
 
-#### D3. Test-set answers (Sat 25 to Tue 28 Oct)
+#### D3. Test-set answers (Sat 25 to Wed 28 Oct)
 
 1. Write the 20 cases in `testset.json` (section 5.4): 8 compatible, 8 incompatible, 4 tricky.
 2. For each, write `why` in plain words, citing the spec-sheet line.
@@ -741,11 +741,11 @@ export default function PayButton({ lines, onAuthorised }: { lines: any[]; onAut
 
 **Done when:** 20 cases are committed and a second teammate has spot-checked 5 of them.
 
-#### D4. Cached forum threads (Wed 29 Oct to Sat 1 Nov)
+#### D4. Cached forum threads (Thu 29 Oct to Sun 1 Nov)
 
 For the demo bundle's products only, copy 1 to 3 relevant comments each from real threads into `threads.json`, with the URL and date. These show as "Reported issues" in the UI. They're information only and never move money.
 
-#### D5. QA every Sunday (26 Oct, 2 Nov, 9 Nov)
+#### D5. QA every Sunday (25 Oct, 1 Nov, 8 Nov)
 
 Run the demo script (section 9) from start to finish on the **hosted** site. For every problem, open a GitHub issue with:
 - what you did,
@@ -755,7 +755,7 @@ Run the demo script (section 9) from start to finish on the **hosted** site. For
 
 Assign it to the owner.
 
-#### D6. README (Mon 3 to Thu 6 Nov)
+#### D6. README (Mon 3 to Fri 6 Nov)
 
 Create `README.md` with these sections, in this order:
 1. One-line pitch plus a screenshot.
@@ -770,7 +770,7 @@ Create `README.md` with these sections, in this order:
 
 **Done when:** a teammate who didn't write it can follow "Run it locally" from scratch on a clean machine.
 
-#### D7. Video (Sat 8 to Mon 10 Nov)
+#### D7. Video (Sat 8 to Tue 10 Nov)
 
 1. Install **OBS Studio** (free). Set the canvas to 1280×720, 30 fps.
 2. Wake the Render site first (open it and wait).
@@ -781,7 +781,7 @@ Create `README.md` with these sections, in this order:
 7. Upload to YouTube as **Public**. Title: "AgentCart: approve once, pay only for parts confirmed to fit (PayPal AI Hackathon)".
 8. Watch it once on a phone with the sound off. Can you still follow the story? If not, add captions.
 
-#### D8. Devpost submission (Tue 11 Nov)
+#### D8. Devpost submission (Wed 11 Nov)
 
 1. Copy the text from `AgentCart_Project_Description.md` and fill **every** `[bracket]`.
 2. Paste in: elevator pitch, description sections, "Built with" tags.
@@ -789,11 +789,11 @@ Create `README.md` with these sections, in this order:
 4. Tools list: exact Gemini model names from B.
 5. Choose the categories: Best Use of PayPal + AI, Best Use of Agentic Commerce, Best Demo Delivery, and the AG Grid sponsor prize.
 6. Add all teammates on Devpost.
-7. **Submit on Tue 11 Nov.** Then take a screenshot of the confirmation page and post it in the group chat.
+7. **Submit on Wed 11 Nov.** Then take a screenshot of the confirmation page and post it in the group chat.
 
 ---
 
-## 7. Go/no-go tests (all by Fri 24 Oct)
+## 7. Go/no-go tests (all by Sat 24 Oct)
 
 Record each result in `docs/go-no-go.md` as `PASS` or `FAIL`, with one line of evidence.
 
@@ -805,7 +805,7 @@ Record each result in `docs/go-no-go.md` as `PASS` or `FAIL`, with one line of e
 | 4 | **Audit accuracy (early)** | Run `auditCompatibility` on 5 of D's cases | At least 4/5 correct with real quotes | B rewrites the prompt; narrow the categories | B |
 | 5 | **Toolkit fits** | Read the toolkit README; enable only `create_order` + `get_order`; check whether `create_order` supports AUTHORIZE | It compiles with only those tools | Keep REST for orders; use the toolkit only for `get_order` | A |
 
-**Decision meeting: Fri 24 Oct.** The team reads the five results and fixes the final pitch wording.
+**Decision meeting: Sat 24 Oct.** The team reads the five results and fixes the final pitch wording.
 
 ---
 
@@ -843,7 +843,7 @@ Shopper page (Next.js + AG Grid + PayPal button)      Merchant console (/merchan
 
 ## 9. Demo script (target 2:45)
 
-Rehearse it every Sunday from 26 Oct. D times it.
+Rehearse it every Sunday from 25 Oct. D times it.
 
 | Time | On screen | Voice-over (say roughly this) |
 |---|---|---|
@@ -915,7 +915,7 @@ Rehearse it every Sunday from 26 Oct. D times it.
 - [ ] README complete; a teammate ran it from scratch
 - [ ] `LICENSE` (MIT) in the repo root
 - [ ] Video public on YouTube, under 3:00, no copyrighted music
-- [ ] Devpost submitted Tue 11 Nov with all links and teammates
+- [ ] Devpost submitted Wed 11 Nov with all links and teammates
 - [ ] Confirmation screenshot posted in the group chat
 
 ---
