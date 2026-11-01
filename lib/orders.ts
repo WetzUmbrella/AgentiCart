@@ -2,10 +2,10 @@ import { getProduct, productName } from "./catalogue";
 import { config } from "./config";
 import { HttpError, expired } from "./errors";
 import { toCents } from "./money";
-import { getPayPal, PayPalError, type PayPalApi, type PurchaseUnit } from "./paypal";
+import { getPayPal, isUncertain, PayPalError, type Capture, type PayPalApi, type PurchaseUnit } from "./paypal";
 import { checkShippedModel as realCheck } from "./ai";
-import { getOrder, logEvent, saveOrder } from "./store";
-import type { Line, Order, ShipVerdict } from "./types";
+import { getOrder, logEvent, orders, resetOrder, saveOrder } from "./store";
+import type { Line, LineState, Order, ShipVerdict } from "./types";
 
 /**
  * Every money decision in AgentCart happens in this file, in server code.
@@ -33,6 +33,57 @@ function lineOf(order: Order, lineId: string): Line {
   const l = order.lines.find((x) => x.line_id === lineId);
   if (!l) throw new HttpError(404, "unknown_line");
   return l;
+}
+
+// ---------- "did that charge go through?" (risk R-P3) ----------
+
+export const UNCERTAIN_MESSAGE =
+  "PayPal did not confirm this charge. Do not ship yet. It is checked again before the order closes.";
+
+/** Tag on every capture, so a capture whose reply was lost can be found in PayPal's record. */
+export const invoiceIdFor = (orderId: string, lineId: string) => `${orderId}-${lineId}`;
+
+const isDuplicateInvoice = (err: unknown) => err instanceof PayPalError && err.issue === "DUPLICATE_INVOICE_ID";
+
+/** Finds our capture in PayPal's order record. null = PayPal has no such capture. */
+async function lookupCapture(orderId: string, invoiceId: string, deps: Deps): Promise<Capture | null | "unreachable"> {
+  try {
+    const o = await deps.paypal.getOrder(orderId);
+    const all = o.purchase_units.flatMap((u) => u.payments?.captures ?? []);
+    return all.find((c) => c.invoice_id === invoiceId) ?? null;
+  } catch {
+    return "unreachable";
+  }
+}
+
+/**
+ * Settles every line whose charge is unconfirmed, before close releases anything.
+ * Throws (and releases nothing) if PayPal cannot answer, so a hidden charge is never "released".
+ */
+async function settleUncertain(order: Order, deps: Deps): Promise<void> {
+  for (const l of order.lines.filter((x) => x.capture_uncertain)) {
+    const found = await lookupCapture(order.orderId, invoiceIdFor(order.orderId, l.line_id), deps);
+    if (found === "unreachable") {
+      throw new HttpError(503, "paypal_unreachable", {
+        message: "Could not confirm a charge with PayPal, so nothing has been released yet. Try Finish again in a minute.",
+      });
+    }
+    if (found?.status === "PENDING") {
+      throw new HttpError(409, "payment_pending", {
+        message: "PayPal is still processing a charge on this order. Try Finish again later.",
+      });
+    }
+    l.capture_uncertain = undefined;
+    if (found?.status === "COMPLETED") {
+      l.state = "CAPTURED";
+      l.capture_id = found.id;
+      l.error = "PayPal confirmed this charge after all. Ship this part.";
+      logEvent(order, `LATE_CAPTURE_CONFIRMED ${l.line_id} ${found.id}`);
+    } else {
+      l.error = "PayPal confirmed this part was never charged. Do not ship.";
+      logEvent(order, `CONFIRMED_NOT_CHARGED ${l.line_id}`);
+    }
+  }
 }
 
 // ---------- create ----------
@@ -110,7 +161,12 @@ export async function authorizeOrder(orderId: string, deps: Deps = defaultDeps()
       }
       logEvent(order, `AUTHORISED ${ref} ${auth.id}`);
     } else {
-      for (const l of unitLines) l.error = `Authorisation status ${auth?.status ?? "missing"}`;
+      for (const l of unitLines) {
+        // Keep the ID even though the hold is not confirmed, so close can still release whatever
+        // PayPal is holding (risk R-P5). The line stays IN_BUNDLE, so it can never be charged.
+        if (auth) l.auth_id = auth.id;
+        l.error = `PayPal has not confirmed the hold (status ${auth?.status ?? "missing"}). This part cannot be charged.`;
+      }
       logEvent(order, `AUTHORISATION_NOT_CREATED ${ref} ${auth?.status ?? "missing"}`);
     }
   }
@@ -128,7 +184,16 @@ export type ShipInput = {
   carrier?: string;
 };
 
-export type ShipResult = { verdict: ShipVerdict; captured: boolean; capture_id?: string; line: Line };
+/** checks_left: how many more model checks this line may have (0 = no repack left). */
+export type ShipResult = { verdict: ShipVerdict; captured: boolean; capture_id?: string; line: Line; checks_left: number };
+
+/** A wrong variant blocks the line; the merchant gets ONE repack, so two checks in total (risk R-M1). */
+export const MAX_CHECKS = 2;
+
+/** A blocked line (wrong variant) may be checked again; a cancelled ("can't fulfil") line may not. */
+const canRecheck = (l: Line) => l.state === "NOT_CHARGED" && !l.cancel_reason && (l.checks ?? 0) < MAX_CHECKS;
+
+const checksLeft = (l: Line) => (l.state === "NOT_CHARGED" && !l.cancel_reason ? Math.max(0, MAX_CHECKS - (l.checks ?? 0)) : 0);
 
 const TRACKING = /^[A-Za-z0-9-]{1,40}$/;
 
@@ -137,16 +202,21 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
   if (order.status === "CLOSED") throw new HttpError(409, "order_closed");
   const line = lineOf(order, input.line_id);
 
-  // Guard: only an AUTHORISED line can be shipped. Stops double charges and stops a
-  // NOT_CHARGED line from being charged later (review 1.2).
-  if (line.state !== "AUTHORISED") {
+  // Guard: only an AUTHORISED line, or a blocked line with its one repack left, can be checked.
+  // Stops double charges and stops a cancelled or twice-blocked line being charged (review 1.2).
+  if (line.state !== "AUTHORISED" && !canRecheck(line)) {
     throw new HttpError(409, "line_not_authorised", { state: line.state, line });
+  }
+  if (line.auth_id && order.voided_auth_ids?.includes(line.auth_id)) {
+    throw new HttpError(409, "line_not_authorised", { state: "VOIDED", line }); // its hold is already released
   }
   const tracking = String(input.tracking_number ?? "").trim();
   if (!TRACKING.test(tracking)) throw new HttpError(400, "bad_tracking_number");
 
   // Claim the line before any await, so a second click hits the guard above.
+  const previous = line.state;
   line.state = "SHIPPED";
+  line.checks = (line.checks ?? 0) + 1;
   line.shipped_model = String(input.shipped_model ?? "").slice(0, 64);
   line.error = undefined;
   logEvent(order, `SHIPPED ${line.line_id} "${line.shipped_model}"`);
@@ -156,7 +226,8 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
     verdict = await deps.checkShipped(line, String(input.shipped_model ?? ""));
   } catch (err) {
     // Nothing was charged, so it is safe to let the merchant try again (review 1.5).
-    line.state = "AUTHORISED";
+    line.state = previous;
+    line.checks = (line.checks ?? 1) - 1;
     line.error = "The model check failed. Nothing was charged. Try again.";
     logEvent(order, `CHECK_FAILED ${line.line_id}`);
     throw err instanceof HttpError ? err : new HttpError(502, "check_failed", { message: line.error });
@@ -166,40 +237,63 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
 
   if (verdict.action !== "CAPTURE") {
     line.state = "NOT_CHARGED";
-    logEvent(order, `NOT_CHARGED ${line.line_id}`);
-    return { verdict, captured: false, line };
+    logEvent(order, `NOT_CHARGED ${line.line_id} (check ${line.checks} of ${MAX_CHECKS})`);
+    return { verdict, captured: false, line, checks_left: checksLeft(line) };
   }
 
   if (!line.auth_id) {
     line.state = "CAPTURE_FAILED";
     line.error = "No authorisation on this line.";
-    return { verdict, captured: false, line };
+    return { verdict, captured: false, line, checks_left: 0 };
   }
 
+  const invoiceId = invoiceIdFor(order.orderId, line.line_id);
+  let cap: Capture;
   try {
-    const cap = await deps.paypal.captureAuthorization(
+    cap = await deps.paypal.captureAuthorization(
       line.auth_id,
       line.amount_cents,
       false,
       `cap-${order.orderId}-${line.line_id}`,
+      invoiceId,
     );
-    if (cap.status === "COMPLETED") {
-      // Record the charge immediately; tracking is best effort after this (review 1.3, 1.4).
-      line.state = "CAPTURED";
-      line.capture_id = cap.id;
-      logEvent(order, `CAPTURED ${line.line_id} ${cap.id}`);
-    } else {
-      line.state = "CAPTURE_FAILED";
-      line.capture_id = cap.id;
-      line.error = `PayPal capture status ${cap.status}${cap.status_details?.reason ? ` (${cap.status_details.reason})` : ""}`;
-      logEvent(order, `CAPTURE_NOT_COMPLETED ${line.line_id} ${cap.status}`);
-      return { verdict, captured: false, capture_id: cap.id, line };
-    }
   } catch (err) {
+    if (!isUncertain(err) && !isDuplicateInvoice(err)) {
+      // PayPal clearly refused (e.g. AUTHORIZATION_VOIDED): no money moved.
+      line.state = "CAPTURE_FAILED";
+      line.error = `PayPal refused the charge (${err instanceof PayPalError ? err.issue ?? err.status : "error"}). Do not ship.`;
+      logEvent(order, `CAPTURE_REFUSED ${line.line_id} ${line.error}`);
+      return { verdict, captured: false, line, checks_left: 0 };
+    }
+    // Timeout, 5xx, or "invoice already used": PayPal may have taken the money.
+    // Ask PayPal's own record instead of guessing (risk R-P3).
+    logEvent(order, `CAPTURE_UNCERTAIN ${line.line_id}, checking PayPal`);
+    const found = await lookupCapture(order.orderId, invoiceId, deps);
+    if (found === "unreachable" || found === null) {
+      line.state = "CAPTURE_FAILED";
+      line.capture_uncertain = true;
+      line.error = UNCERTAIN_MESSAGE;
+      logEvent(order, `CAPTURE_UNCONFIRMED ${line.line_id} (${found === null ? "not found yet" : "PayPal unreachable"})`);
+      return { verdict, captured: false, line, checks_left: 0 };
+    }
+    cap = found;
+    logEvent(order, `CAPTURE_FOUND_BY_LOOKUP ${line.line_id} ${cap.id} ${cap.status}`);
+  }
+
+  if (cap.status === "COMPLETED") {
+    // Record the charge immediately; tracking is best effort after this (review 1.3, 1.4).
+    line.state = "CAPTURED";
+    line.capture_id = cap.id;
+    line.capture_uncertain = undefined;
+    logEvent(order, `CAPTURED ${line.line_id} ${cap.id}`);
+  } else {
     line.state = "CAPTURE_FAILED";
-    line.error = err instanceof PayPalError ? `PayPal: ${err.issue ?? err.status}` : "Capture request failed";
-    logEvent(order, `CAPTURE_ERROR ${line.line_id} ${line.error}`);
-    return { verdict, captured: false, line };
+    line.capture_id = cap.id;
+    // A PENDING capture may still complete, so close must check it again before releasing.
+    if (cap.status === "PENDING") line.capture_uncertain = true;
+    line.error = `PayPal capture status ${cap.status}${cap.status_details?.reason ? ` (${cap.status_details.reason})` : ""}. Do not ship.`;
+    logEvent(order, `CAPTURE_NOT_COMPLETED ${line.line_id} ${cap.status}`);
+    return { verdict, captured: false, capture_id: cap.id, line, checks_left: 0 };
   }
 
   try {
@@ -211,7 +305,35 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
     line.tracking_number = tracking; // keep it in our store so the UI can still show it
     logEvent(order, `TRACKING_FAILED ${line.line_id} ${err instanceof Error ? err.message.slice(0, 120) : ""}`);
   }
-  return { verdict, captured: true, capture_id: line.capture_id, line };
+  return { verdict, captured: true, capture_id: line.capture_id, line, checks_left: 0 };
+}
+
+// ---------- can't fulfil (risk R-M2) ----------
+
+export type CancelInput = { orderId: string; line_id: string; reason?: string };
+
+/**
+ * The merchant cannot supply a held part (out of stock). The line becomes NOT_CHARGED with a reason,
+ * with no AI call and no PayPal call; its share of the hold is released when the order closes.
+ */
+export function cancelLine(input: CancelInput): { line: Line } {
+  const order = load(input.orderId);
+  if (order.status === "CLOSED") throw new HttpError(409, "order_closed");
+  const line = lineOf(order, input.line_id);
+  // A held line, or a blocked line (wrong variant) the merchant cannot repack, can be cancelled.
+  if (line.state !== "AUTHORISED" && !canRecheck(line)) {
+    throw new HttpError(409, "line_not_authorised", { state: line.state, line });
+  }
+  const reason =
+    String(input.reason ?? "")
+      .replace(/[^A-Za-z0-9 .,'()-]/g, "")
+      .trim()
+      .slice(0, 120) || "The merchant cannot fulfil this part.";
+  line.state = "NOT_CHARGED";
+  line.cancel_reason = reason;
+  line.error = undefined;
+  logEvent(order, `CANNOT_FULFIL ${line.line_id}`);
+  return { line };
 }
 
 // ---------- close ----------
@@ -222,31 +344,137 @@ export async function closeOrder(orderId: string, deps: Deps = defaultDeps()): P
   if (order.lines.some((l) => l.state === "SHIPPED")) {
     throw new HttpError(409, "still_processing", { message: "A part is still being checked. Try again in a moment." });
   }
+  await settleUncertain(order, deps);
 
   // Void only authorisations that still hold uncaptured money (review 1.6).
   // Voiding a fully captured authorisation fails at PayPal, so those are skipped.
   const byAuth = new Map<string, Line[]>();
   for (const l of order.lines) if (l.auth_id) byAuth.set(l.auth_id, [...(byAuth.get(l.auth_id) ?? []), l]);
 
+  const released = new Set(order.voided_auth_ids ?? []); // voided on an earlier attempt: never void twice
+  const failed: string[] = [];
   for (const [authId, ls] of byAuth) {
-    const holdsMoney = ls.some((l) => l.state === "AUTHORISED" || l.state === "NOT_CHARGED" || l.state === "CAPTURE_FAILED");
-    if (!holdsMoney) continue;
-    try {
-      await deps.paypal.voidAuthorization(authId, `void-${authId}`);
-      logEvent(order, `VOIDED ${authId}`);
-    } catch (err) {
-      // Carry on with the other authorisations; never stop half-way.
-      logEvent(order, `VOID_FAILED ${authId} ${err instanceof PayPalError ? err.issue ?? err.status : ""}`);
-    }
+    if (released.has(authId) || !ls.some(holdsMoney)) continue;
+    const outcome = await releaseAuthorization(authId, order, deps);
+    if (outcome === "released") released.add(authId);
+    else if (outcome === "failed") failed.push(authId); // carry on with the others; never stop half-way
+  }
+  order.voided_auth_ids = [...released];
+  // Lines whose hold PayPal confirmed as voided are VOIDED now, even if another release failed,
+  // so nobody tries to ship (and charge) them against a voided authorisation.
+  for (const l of order.lines) {
+    if ((l.state === "AUTHORISED" || l.state === "IN_BUNDLE") && l.auth_id && released.has(l.auth_id)) l.state = "VOIDED";
   }
 
-  for (const l of order.lines) if (l.state === "AUTHORISED") l.state = "VOIDED";
+  // Risk R-P4: only say "released" for money PayPal confirmed it released.
+  if (failed.length > 0) {
+    throw new HttpError(502, "release_failed", {
+      message:
+        "PayPal did not confirm that the held money was released, so the order is still open. Nothing extra was charged. Press Finish again.",
+      order,
+    });
+  }
+
   order.released_cents = order.lines
+    .filter((l) => l.auth_id && released.has(l.auth_id))
     .filter((l) => l.state === "VOIDED" || l.state === "NOT_CHARGED" || l.state === "CAPTURE_FAILED")
     .reduce((s, l) => s + l.amount_cents, 0);
   order.status = "CLOSED";
+  order.closed_at = Date.now();
   logEvent(order, "CLOSED");
   return order;
+}
+
+/** Line states whose share of the hold is still reserved at PayPal. */
+const HOLDING: ReadonlySet<LineState> = new Set<LineState>(["AUTHORISED", "NOT_CHARGED", "CAPTURE_FAILED"]);
+
+/** An IN_BUNDLE line only holds money if PayPal gave it an (unconfirmed) authorisation (R-P5). */
+const holdsMoney = (l: Line): boolean => (l.state === "IN_BUNDLE" ? Boolean(l.auth_id) : HOLDING.has(l.state));
+
+const issueOf = (err: unknown) => (err instanceof PayPalError ? err.issue ?? `HTTP ${err.status}` : "error");
+
+/**
+ * Voids one authorisation. If the void call errors, PayPal's record decides: the void may have
+ * worked with its reply lost, or an earlier attempt may already have voided it.
+ */
+async function releaseAuthorization(
+  authId: string,
+  order: Order,
+  deps: Deps,
+): Promise<"released" | "nothing_held" | "failed"> {
+  try {
+    await deps.paypal.voidAuthorization(authId, `void-${authId}`);
+    logEvent(order, `VOIDED ${authId}`);
+    return "released";
+  } catch (err) {
+    try {
+      const a = await deps.paypal.getAuthorization(authId);
+      if (a.status === "VOIDED") {
+        logEvent(order, `VOID_CONFIRMED_BY_LOOKUP ${authId}`);
+        return "released";
+      }
+      if (a.status === "CAPTURED" || a.status === "EXPIRED") {
+        logEvent(order, `NOTHING_LEFT_TO_RELEASE ${authId} ${a.status}`);
+        return "nothing_held";
+      }
+      logEvent(order, `VOID_FAILED ${authId} ${issueOf(err)} (authorisation ${a.status})`);
+    } catch {
+      logEvent(order, `VOID_FAILED ${authId} ${issueOf(err)} (status unknown)`);
+    }
+    return "failed";
+  }
+}
+
+// ---------- auto-close and safe reset (risk R-S2) ----------
+
+/** Open orders are closed (their holds voided) after 24 h, well inside PayPal's 3-day honour period. */
+export const AUTO_CLOSE_MS = 24 * 60 * 60 * 1000;
+
+/** Closes every open order older than AUTO_CLOSE_MS. A failed close is retried on the next sweep. */
+export async function sweepStale(deps: Deps = defaultDeps(), now = Date.now()): Promise<string[]> {
+  const closed: string[] = [];
+  for (const o of [...orders.values()]) {
+    if (o.status === "CLOSED" || now - o.created_at < AUTO_CLOSE_MS) continue;
+    try {
+      await closeOrder(o.orderId, deps);
+      logEvent(o, "AUTO_CLOSED after 24 h");
+      closed.push(o.orderId);
+    } catch (err) {
+      console.error(`Auto-close of ${o.orderId} failed; the next sweep retries it.`, err);
+    }
+  }
+  return closed;
+}
+
+let lastSweep = 0;
+
+/** Called by routes; runs the sweep at most once a minute, in the background. */
+export function maybeSweep(now = Date.now()): void {
+  if (now - lastSweep < 60_000) return;
+  lastSweep = now;
+  sweepStale().catch((err) => console.error("Auto-close sweep failed", err));
+}
+
+/**
+ * "Start over": release the order's hold, then forget it. If the release fails, the order is kept
+ * so the 24 h sweep can release it later; it is never forgotten while PayPal still holds money.
+ */
+export async function resetOrderSafely(
+  orderId: string,
+  deps: Deps = defaultDeps(),
+): Promise<{ cleared: boolean; deferred?: boolean }> {
+  const o = getOrder(orderId);
+  if (!o) return { cleared: false };
+  if (o.status !== "CLOSED") {
+    try {
+      await closeOrder(orderId, deps);
+    } catch {
+      logEvent(o, "RESET_DEFERRED close failed; auto-close will retry");
+      return { cleared: false, deferred: true };
+    }
+  }
+  resetOrder(orderId);
+  return { cleared: true };
 }
 
 // ---------- webhook ----------

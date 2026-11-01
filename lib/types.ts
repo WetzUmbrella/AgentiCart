@@ -48,6 +48,12 @@ export type Line = {
   shipped_model?: string;
   verdict?: ShipVerdict;
   error?: string;
+  /** true while we cannot tell whether PayPal took the money for this line (risk R-P3). */
+  capture_uncertain?: boolean;
+  /** Set when the merchant pressed "Can't fulfil" (out of stock): the line is never charged. */
+  cancel_reason?: string;
+  /** Model checks done on this line. A wrong variant allows one repack: two checks at most. */
+  checks?: number;
 };
 
 export type Order = {
@@ -57,6 +63,9 @@ export type Order = {
   events: string[];
   created_at: number;
   released_cents?: number;
+  closed_at?: number;
+  /** Authorisations PayPal confirmed as voided; close never voids these again (risk R-P4). */
+  voided_auth_ids?: string[];
 };
 
 export type Constraints = {
