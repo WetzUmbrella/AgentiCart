@@ -28,6 +28,7 @@ describe("bundle builder (mock AI)", () => {
       b.search.steps.find((s) => s.category === category)!.candidates.map((c) => [c.product_id, c.outcome]);
     expect(outcomes("interface")).toEqual([
       ["if-uca202", "filtered_out"],
+      ["if-mtrack-solo", "filtered_out"],
       ["if-umc22", "filtered_out"],
       ["if-solo-4", "filtered_out"],
       ["if-2i2-4", "picked"],
@@ -37,7 +38,9 @@ describe("bundle builder (mock AI)", () => {
       ["mic-sm58lc", "picked"],
       ["mic-at2020", "not_tried"],
       ["mic-sm58s", "not_tried"],
+      ["mic-at2035", "not_tried"],
       ["mic-podmic-usb", "not_tried"],
+      ["mic-sm7b", "not_tried"],
     ]);
     // Every catalogue product in a wanted category appears exactly once.
     expect(b.search.steps.flatMap((s) => s.candidates).length).toBe(catalogue.length);

@@ -6,10 +6,12 @@
     "model": "Scarlett 2i2 4th Gen",
     "variant": "Scarlett 2i2 4th Gen",
     "price_usd": 224.99,
-    "price_date": "2026-10-17",
-    "price_source_url": "https://equipboard.com/items/focusrite-scarlett-2i2-4th-generation",
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.sweetwater.com/store/detail/Scar2i2G4--focusrite-scarlett-2i2-4th-gen-usb-audio-interface",
     "merchant": "merchant_a",
-    "listing": { "xlr_inputs": 2 },
+    "listing": {
+      "xlr_inputs": 2
+    },
     "spec_file": "specs/if-2i2-4.pdf",
     "spec_source_url": "https://userguides.focusrite.com/hc/en-gb/articles/19640392541202-2i2-4th-Gen-Specifications",
     "spec_download_url": null,
@@ -20,7 +22,7 @@
       "headphone_power": "32mW into 33 ohm, 22mW into 300 ohm",
       "usb": "USB 2.0 Type-C"
     },
-    "verified_by_d": false
+    "verified_by_d": true
   },
   {
     "id": "if-solo-4",
@@ -29,10 +31,12 @@
     "model": "Scarlett Solo 4th Gen",
     "variant": "Scarlett Solo 4th Gen",
     "price_usd": 159.99,
-    "price_date": "2026-10-18",
-    "price_source_url": "https://www.adorama.com/focusrite-scarlett-solo-4th-gen-usb-audio-interface/p/framsrsolo4g",
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.sweetwater.com/store/detail/ScarSoG4--focusrite-scarlett-solo-4th-gen-usb-audio-interface",
     "merchant": "merchant_a",
-    "listing": { "xlr_inputs": 1 },
+    "listing": {
+      "xlr_inputs": 1
+    },
     "spec_file": "specs/if-solo-4.pdf",
     "spec_source_url": "https://userguides.focusrite.com/hc/en-gb/articles/17505454908562-Solo-4th-Gen-Specifications",
     "spec_download_url": null,
@@ -43,7 +47,7 @@
       "headphone_power": "32mW into 33 ohm, 22mW into 300 ohm",
       "usb": "USB 2.0 Type-C"
     },
-    "verified_by_d": false
+    "verified_by_d": true
   },
   {
     "id": "if-umc22",
@@ -51,21 +55,23 @@
     "brand": "Behringer",
     "model": "U-PHORIA UMC22",
     "variant": "UMC22",
-    "price_usd": 52.90,
-    "price_date": "2026-10-18",
+    "price_usd": 52.9,
+    "price_date": "2026-11-01",
     "price_source_url": "https://www.bhphotovideo.com/c/product/1821220-REG/behringer_umc22_audiophile_2x2_usb_audio.html",
     "merchant": "merchant_b",
-    "listing": { "xlr_inputs": 1 },
+    "listing": {
+      "xlr_inputs": 1
+    },
     "spec_file": "specs/if-umc22.pdf",
     "spec_source_url": "https://www.behringer.com/en/products/0805-AAJ",
     "spec_download_url": null,
     "key_specs": {
-      "mic_inputs": "1x combo XLR-1/4 inch TRS mic/line/Hi-Z input",
-      "phantom_power": "48V, selectable on/off (applied to all inputs)",
-      "headphone_output": "1x 1/4 inch TRS",
-      "usb": "USB-B (USB 1.1)"
+      "mic_inputs": "1x combo XLR/1/4 inch TRS mic/line input, plus 1x 1/4 inch instrument input",
+      "phantom_power": "48V, rear panel switch",
+      "headphone_output": "not stated on official spec sheet",
+      "usb": "not stated on official spec sheet"
     },
-    "verified_by_d": false
+    "verified_by_d": true
   },
   {
     "id": "if-uca202",
@@ -73,21 +79,48 @@
     "brand": "Behringer",
     "model": "U-CONTROL UCA202",
     "variant": "UCA202",
-    "price_usd": 24.90,
-    "price_date": "2026-10-18",
-    "price_source_url": "https://www.markertek.com/product/beh-uca202/behringer-uca202-u-control-ultra-low-latency-2-in-2-out-usb-audio-interface-with-digital-output",
+    "price_usd": 24.9,
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.altomusic.com/products/behringer-uca202-ultra-low-latency-2-in-2-out-usb-audio-interface-with-digital-output",
     "merchant": "merchant_c",
-    "listing": { "xlr_inputs": 0 },
+    "listing": {
+      "xlr_inputs": 0
+    },
     "spec_file": "specs/if-uca202.pdf",
-    "spec_source_url": "https://www.behringer.com/en/products/0805-AAC",
+    "spec_source_url": "https://www.behringer.com/en/products/0805-AAC?tab=specifications",
     "spec_download_url": null,
     "key_specs": {
       "inputs": "RCA, unbalanced line inputs",
       "mic_preamp": false,
-      "phantom_power": "none",
+      "phantom_power": "none (sheet lists only RCA line inputs, no mic input)",
       "max_input_level": "2 dBV"
     },
-    "verified_by_d": false
+    "verified_by_d": true
+  },
+  {
+    "id": "if-mtrack-solo",
+    "category": "interface",
+    "brand": "M-Audio",
+    "model": "M-Track Solo",
+    "variant": "M-Track Solo",
+    "price_usd": 49.0,
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.sweetwater.com/store/detail/MTrackSolo--m-audio-m-track-solo-usb-audio-interface",
+    "merchant": "merchant_c",
+    "listing": {
+      "xlr_inputs": 1
+    },
+    "spec_file": "specs/if-mtrack-solo.pdf",
+    "spec_source_url": "https://www.m-audio.com/audio-midi-interfaces/m-track-solo.html",
+    "spec_download_url": null,
+    "key_specs": {
+      "mic_inputs": "(1) Combo input with Crystal Preamp",
+      "phantom_power": "+48V phantom power",
+      "headphone_output": "1/8 inch (3.5 mm) TRS",
+      "headphone_power": "60 mW/Ch, 32 ohm",
+      "usb": "USB 2.0"
+    },
+    "verified_by_d": true
   },
   {
     "id": "mic-yeti-orb",
@@ -95,8 +128,8 @@
     "brand": "Logitech G",
     "model": "Yeti Orb",
     "variant": "Yeti Orb",
-    "price_usd": 74.00,
-    "price_date": "2026-10-18",
+    "price_usd": 74.0,
+    "price_date": "2026-11-01",
     "price_source_url": "https://www.shi.com/product/46756511/Logitech-G-Yeti-Orb-Microphone",
     "merchant": "merchant_c",
     "listing": {},
@@ -105,10 +138,11 @@
     "spec_download_url": null,
     "key_specs": {
       "element": "condenser",
-      "connector": "USB Type-C",
-      "xlr_output": false
+      "connector": "USB-C (USB-C to USB-A cable)",
+      "xlr_output": false,
+      "mount_thread": "1/4 inch-20"
     },
-    "verified_by_d": false
+    "verified_by_d": true
   },
   {
     "id": "mic-sm58lc",
@@ -116,8 +150,8 @@
     "brand": "Shure",
     "model": "SM58",
     "variant": "SM58-LC",
-    "price_usd": 109.00,
-    "price_date": "2026-10-18",
+    "price_usd": 109.0,
+    "price_date": "2026-11-01",
     "price_source_url": "https://www.fullcompass.com/prod/019044-shure-sm58-lc-cardioid-dynamic-vocal-mic",
     "merchant": "merchant_b",
     "listing": {},
@@ -127,10 +161,11 @@
     "key_specs": {
       "element": "dynamic (moving coil)",
       "connector": "XLR-3M",
-      "needs_phantom_power": false,
+      "mount_thread": "5/8 inch-27",
+      "needs_phantom_power": "not stated on official spec sheet",
       "on_off_switch": false
     },
-    "verified_by_d": false
+    "verified_by_d": true
   },
   {
     "id": "mic-sm58s",
@@ -138,9 +173,9 @@
     "brand": "Shure",
     "model": "SM58",
     "variant": "SM58S",
-    "price_usd": 119.00,
-    "price_date": "2026-10-18",
-    "price_source_url": "https://fullcompass.com/prod/019046-shure-sm58s-cardioid-dynamic-vocal-mic-with-on-off-switch",
+    "price_usd": 119.0,
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.fullcompass.com/prod/019046-shure-sm58s-dynamic-vocal-microphone-with-on-off-switch",
     "merchant": "merchant_c",
     "listing": {},
     "spec_file": "specs/mic-sm58.pdf",
@@ -149,10 +184,11 @@
     "key_specs": {
       "element": "dynamic (moving coil)",
       "connector": "XLR-3M",
-      "needs_phantom_power": false,
+      "mount_thread": "5/8 inch-27",
+      "needs_phantom_power": "not stated on official spec sheet",
       "on_off_switch": true
     },
-    "verified_by_d": false
+    "verified_by_d": true
   },
   {
     "id": "mic-at2020",
@@ -160,9 +196,9 @@
     "brand": "Audio-Technica",
     "model": "AT2020",
     "variant": "AT2020",
-    "price_usd": 119.00,
-    "price_date": "2026-10-18",
-    "price_source_url": "https://audio-technica.com/en-us/AT2020",
+    "price_usd": 119.0,
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.sweetwater.com/store/detail/AT2020--audio-technica-at2020-cardioid-condenser-microphone",
     "merchant": "merchant_a",
     "listing": {},
     "spec_file": "specs/mic-at2020.pdf",
@@ -172,9 +208,10 @@
       "element": "condenser",
       "connector": "Integral 3-pin XLRM-type",
       "needs_phantom_power": true,
-      "phantom_power": "48V DC, 2 mA typical"
+      "phantom_power": "48V DC, 2 mA typical",
+      "mount_thread": "5/8 inch-27, 5/8-27 to 3/8-16 adapter included"
     },
-    "verified_by_d": false
+    "verified_by_d": true
   },
   {
     "id": "mic-podmic-usb",
@@ -182,20 +219,69 @@
     "brand": "RODE",
     "model": "PodMic USB",
     "variant": "PodMic USB",
-    "price_usd": 209.00,
-    "price_date": "2026-10-18",
+    "price_usd": 209.0,
+    "price_date": "2026-11-01",
     "price_source_url": "https://avlgear.com/collections/rode/products/rode-podmic-usb-versatile-dynamic-broadcast-microphone",
     "merchant": "merchant_b",
     "listing": {},
     "spec_file": "specs/mic-podmic-usb.pdf",
-    "spec_source_url": "https://rode.com/products/podmic-usb",
-    "spec_download_url": null,
+    "spec_source_url": "https://edge.rode.com//pdf/products/1045/PodMicUSB%20White_Datasheet_FA.pdf",
+    "spec_download_url": "https://edge.rode.com//pdf/products/1045/PodMicUSB%20White_Datasheet_FA.pdf",
     "key_specs": {
       "element": "dynamic",
       "connector": "USB-C and 3-pin XLR",
-      "needs_phantom_power": "not stated in listing; check official spec page"
+      "needs_phantom_power": "not stated on official spec sheet"
     },
-    "verified_by_d": false
+    "verified_by_d": true
+  },
+  {
+    "id": "mic-sm7b",
+    "category": "microphone",
+    "brand": "Shure",
+    "model": "SM7B",
+    "variant": "SM7B",
+    "price_usd": 439.0,
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.sweetwater.com/store/detail/SM7B--shure-sm7b-cardioid-dynamic-vocal-microphone",
+    "merchant": "merchant_b",
+    "listing": {},
+    "spec_file": "specs/mic-sm7b.pdf",
+    "spec_source_url": "https://www.shure.com/en-US/docs/guide/SM7B",
+    "spec_download_url": null,
+    "key_specs": {
+      "element": "dynamic (moving coil)",
+      "connector": "XLR (3-pin, pin 2 positive)",
+      "needs_phantom_power": false,
+      "sensitivity": "-59 dBV/Pa (1.12 mV)",
+      "output_impedance_ohm": 150,
+      "weight_kg": 0.764,
+      "mount_thread": "5/8 inch, 5/8 to 3/8 thread adapter included"
+    },
+    "verified_by_d": true
+  },
+  {
+    "id": "mic-at2035",
+    "category": "microphone",
+    "brand": "Audio-Technica",
+    "model": "AT2035",
+    "variant": "AT2035",
+    "price_usd": 159.0,
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.sweetwater.com/store/detail/AT2035--audio-technica-at2035-large-diaphragm-condenser-microphone",
+    "merchant": "merchant_a",
+    "listing": {},
+    "spec_file": "specs/mic-at2035.pdf",
+    "spec_source_url": "https://docs.audio-technica.com/us/at2035_submit.pdf",
+    "spec_download_url": null,
+    "key_specs": {
+      "element": "condenser",
+      "connector": "Integral 3-pin XLRM-type",
+      "needs_phantom_power": true,
+      "phantom_power": "11-52V DC, 3.8 mA typical",
+      "weight_kg": 0.403,
+      "mount_thread": "5/8 inch-27, 5/8-27 to 3/8-16 adapter included"
+    },
+    "verified_by_d": true
   },
   {
     "id": "cable-hosa-hmic010",
@@ -215,7 +301,47 @@
       "ends": "XLR3F to XLR3M",
       "length_ft": 10
     },
-    "verified_by_d": false
+    "verified_by_d": true
+  },
+  {
+    "id": "cable-mogami-trs10",
+    "category": "cable",
+    "brand": "Mogami",
+    "model": "GOLD TRS-TRS-10",
+    "variant": "GOLD TRS-TRS-10 (10 ft)",
+    "price_usd": 89.95,
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.sweetwater.com/store/detail/GoldTRS10--mogami-gold-trs-trs-balanced-1-4-inch-patch-cable-10-foot",
+    "merchant": "merchant_b",
+    "listing": {},
+    "spec_file": "specs/cable-mogami-trs10.pdf",
+    "spec_source_url": "https://mogamicable.com/category/products/gold-TRS-TRS_3_6_10_20.php",
+    "spec_download_url": null,
+    "key_specs": {
+      "ends": "1/4 inch TRS male to 1/4 inch TRS male",
+      "length_ft": 10
+    },
+    "verified_by_d": true
+  },
+  {
+    "id": "cable-rode-sc18",
+    "category": "cable",
+    "brand": "RØDE",
+    "model": "SC18",
+    "variant": "SC18 1.5m",
+    "price_usd": 19.0,
+    "price_date": "2026-11-01",
+    "price_source_url": "https://rode.com/en-int/products/sc18",
+    "merchant": "merchant_c",
+    "listing": {},
+    "spec_file": "specs/cable-rode-sc18.pdf",
+    "spec_source_url": "https://rode.com/en-int/products/sc18",
+    "spec_download_url": null,
+    "key_specs": {
+      "ends": "USB-C to USB-A",
+      "length_m": 1.5
+    },
+    "verified_by_d": true
   },
   {
     "id": "stand-psa1",
@@ -223,8 +349,8 @@
     "brand": "RODE",
     "model": "PSA1",
     "variant": "PSA1",
-    "price_usd": 99.00,
-    "price_date": "2026-10-18",
+    "price_usd": 99.0,
+    "price_date": "2026-11-01",
     "price_source_url": "https://www.zzounds.com/item--RODPSA1",
     "merchant": "merchant_b",
     "listing": {},
@@ -232,10 +358,50 @@
     "spec_source_url": "https://rode.com/products/psa1",
     "spec_download_url": null,
     "key_specs": {
-      "mount_thread": "3/8 inch (retailer listing conflicts on whether a 3/8 to 5/8 adapter is included)",
+      "mount_thread": "3/8 inch",
       "max_load": "0.7 to 1.1 kg"
     },
-    "verified_by_d": false
+    "verified_by_d": true
+  },
+  {
+    "id": "stand-elgato-lp",
+    "category": "stand",
+    "brand": "Elgato",
+    "model": "Wave Mic Arm LP",
+    "variant": "Wave Mic Arm LP",
+    "price_usd": 99.99,
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.elgato.com/ww/en/p/wave-mic-arm-lp",
+    "merchant": "merchant_a",
+    "listing": {},
+    "spec_file": "specs/stand-elgato-lp.pdf",
+    "spec_source_url": "https://www.elgato.com/ww/en/p/wave-mic-arm-lp",
+    "spec_download_url": null,
+    "key_specs": {
+      "mount_thread": "1/4 inch, 1/4 to 3/8 and 1/4 to 5/8 adapters included",
+      "max_load": "2 kg (mic and accessories)"
+    },
+    "verified_by_d": true
+  },
+  {
+    "id": "stand-compass",
+    "category": "stand",
+    "brand": "Logitech G",
+    "model": "Compass",
+    "variant": "Compass Broadcast Boom Arm",
+    "price_usd": 99.99,
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.logitechg.com/en-us/shop/p/compass-premium-broadcast-boom-arm.955-000074",
+    "merchant": "merchant_c",
+    "listing": {},
+    "spec_file": "specs/stand-compass.pdf",
+    "spec_source_url": "https://www.logitechg.com/en-us/shop/p/compass-premium-broadcast-boom-arm.955-000074",
+    "spec_download_url": null,
+    "key_specs": {
+      "mount_thread": "5/8 inch, adapter for 3/8 inch included",
+      "max_load": "1.1 kg (including mic and shockmount)"
+    },
+    "verified_by_d": true
   },
   {
     "id": "hp-mdr7506",
@@ -243,19 +409,19 @@
     "brand": "Sony",
     "model": "MDR-7506",
     "variant": "MDR-7506",
-    "price_usd": 98.00,
+    "price_usd": 98.0,
     "price_date": "2026-10-18",
     "price_source_url": "https://www.bhphotovideo.com/c/product/803549611-USE/sony_mdr_7506_headphones.html",
     "merchant": "merchant_c",
     "listing": {},
     "spec_file": "specs/hp-mdr7506.pdf",
-    "spec_source_url": "https://pro.sony/bp_BR/pdf/mdr-7506",
+    "spec_source_url": "https://pro.sony/en_BN/pdf/products/headphones/mdr-7506",
     "spec_download_url": null,
     "key_specs": {
       "impedance_ohm": 63,
-      "plug": "3.5mm stereo mini plug, 1/4 inch adapter included"
+      "plug": "Unimatch plug, 1/8 inch (3.5mm) and 1/4 inch (6.3mm)"
     },
-    "verified_by_d": false
+    "verified_by_d": true
   },
   {
     "id": "hp-m50x",
@@ -263,9 +429,9 @@
     "brand": "Audio-Technica",
     "model": "ATH-M50x",
     "variant": "ATH-M50x",
-    "price_usd": 159.00,
-    "price_date": "2026-10-18",
-    "price_source_url": "https://audio-technica.com/en-us/ath-m50x",
+    "price_usd": 159.0,
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.sweetwater.com/store/detail/ATHM50x--audio-technica-ath-m50x-closed-back-studio-monitoring-headphones",
     "merchant": "merchant_a",
     "listing": {},
     "spec_file": "specs/hp-m50x.pdf",
@@ -275,7 +441,7 @@
       "impedance_ohm": 38,
       "plug": "3.5mm with 6.3mm screw-on adapter included"
     },
-    "verified_by_d": false
+    "verified_by_d": true
   },
   {
     "id": "hp-dt770-250",
@@ -283,8 +449,8 @@
     "brand": "beyerdynamic",
     "model": "DT 770 PRO",
     "variant": "DT 770 PRO 250 ohm",
-    "price_usd": 159.99,
-    "price_date": "2026-10-18",
+    "price_usd": 199.99,
+    "price_date": "2026-11-01",
     "price_source_url": "https://www.fullcompass.com/prod/029981-beyerdynamic-dt-770-pro-250-closed-back-dynamic-headphones-250-ohm",
     "merchant": "merchant_b",
     "listing": {},
@@ -293,8 +459,48 @@
     "spec_download_url": null,
     "key_specs": {
       "impedance_ohm": 250,
-      "plug": "3.5mm with 6.35mm adapter (inclusion not confirmed)"
+      "plug": "3.5mm with 6.35mm (1/4 inch) adapter included"
     },
-    "verified_by_d": false
+    "verified_by_d": true
+  },
+  {
+    "id": "hp-hd600",
+    "category": "headphones",
+    "brand": "Sennheiser",
+    "model": "HD 600",
+    "variant": "HD 600",
+    "price_usd": 499.95,
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.sweetwater.com/store/detail/HD600--sennheiser-hd-600-open-back-audiophile-professional-headphones",
+    "merchant": "merchant_a",
+    "listing": {},
+    "spec_file": "specs/hp-hd600.pdf",
+    "spec_source_url": "https://sg.sennheiser-hearing.com/products/hd-600",
+    "spec_download_url": null,
+    "key_specs": {
+      "impedance_ohm": 300,
+      "plug": "3.5 mm stereo jack plug with adapter"
+    },
+    "verified_by_d": true
+  },
+  {
+    "id": "hp-k371",
+    "category": "headphones",
+    "brand": "AKG",
+    "model": "K371",
+    "variant": "K371",
+    "price_usd": 149.0,
+    "price_date": "2026-11-01",
+    "price_source_url": "https://www.sweetwater.com/store/detail/K371--akg-k371-first-class-closed-back-headphones",
+    "merchant": "merchant_b",
+    "listing": {},
+    "spec_file": "specs/hp-k371.pdf",
+    "spec_source_url": "https://www.akg.com.sg/K371.html",
+    "spec_download_url": null,
+    "key_specs": {
+      "impedance_ohm": 32,
+      "plug": "Mini-XLR detachable cable, 3.5 mm (1/8 inch) with 6.5 mm (1/4 inch) adapter"
+    },
+    "verified_by_d": true
   }
 ]
