@@ -1,1 +1,7 @@
-[]
+[
+  { "case_id": "s01", "bundle": ["mic-at2020", "if-umc22"], "check": "mic-at2020", "expected_compatible": true, "why": "AT2020 needs 48V phantom power over XLR; UMC22 has a combo XLR mic input with selectable 48V phantom power." },
+  { "case_id": "s02", "bundle": ["mic-sm58lc", "if-uca202"], "check": "mic-sm58lc", "expected_compatible": false, "why": "SM58-LC is an XLR dynamic mic; UCA202 has unbalanced RCA line inputs only and no mic preamp." },
+  { "case_id": "s03", "bundle": ["mic-yeti-orb", "if-solo-4"], "check": "mic-yeti-orb", "expected_compatible": false, "why": "Yeti Orb connects over USB Type-C only with no XLR output; Solo 4th Gen takes mics on an XLR input." },
+  { "case_id": "s04", "bundle": ["hp-m50x", "if-2i2-4"], "check": "hp-m50x", "expected_compatible": true, "why": "M50x is 38 ohm with a 6.3mm adapter included; 2i2 4th Gen headphone output drives 32mW into 33 ohm." },
+  { "case_id": "s05", "bundle": ["mic-sm58s", "if-solo-4"], "check": "mic-sm58s", "expected_compatible": true, "why": "SM58S is a dynamic XLR-3M mic needing no phantom power; Solo 4th Gen has a Neutrik XLR mic input." }
+]
