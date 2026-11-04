@@ -13,6 +13,8 @@ export const ProductSchema = z.object({
   price_usd: z.number().positive(),
   price_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   price_source_url: z.string().url(),
+  // Channel3 product ID for live price and stock (picked by hand; null or missing = no exact listing, keep the fixed price).
+  channel3_id: z.string().regex(/^[A-Za-z0-9]+$/).nullable().optional(),
   merchant: z.enum(["merchant_a", "merchant_b", "merchant_c"]),
   listing: z.object({ xlr_inputs: z.number().int().min(0).optional() }),
   spec_file: z.string().regex(/^specs\/[a-z0-9-]+\.(pdf|png)$/),
