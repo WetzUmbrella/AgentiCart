@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/**": ["./data/**/*"],
   },
+  // lib/trust.ts reads PDF text to check evidence quotes; pdf-parse loads pdf.js and must not be bundled.
+  serverExternalPackages: ["pdf-parse"],
 };
 
 export default nextConfig;

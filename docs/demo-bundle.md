@@ -2,18 +2,20 @@
 
 Goal text: **Podcast setup for 2 people under $900**
 
-With the current catalogue the builder produces (checked in mock mode; re-check in live mode):
+With the current catalogue the builder produces (confirmed live on 2 Nov with `gemini-3.1-pro-preview`; mock mode matches):
 
 | Line | Part | Qty | Amount |
 |---|---|---|---|
 | line-1 | Focusrite Scarlett 2i2 4th Gen | 1 | $224.99 |
 | line-2 | Shure SM58-LC | 2 | $218.00 |
 | line-3 | Hosa HMIC-010 | 2 | $32.22 |
-| line-4 | RODE PSA1 | 2 | $198.00 |
+| line-4 | Logitech G Compass Broadcast Boom Arm | 2 | $199.98 |
 | line-5 | Sony MDR-7506 | 2 | $196.00 |
-| | **Total** | | **$869.21** |
+| | **Total** | | **$871.19** |
 
-Rejected on screen: **Logitech G Yeti Orb** (USB-C only; the 2i2 has XLR mic inputs). It is tried first because candidates are tried cheapest first, so the rejection is a real audit result, not a staged one.
+Rejected on screen, both real audit results (candidates are tried cheapest first, so neither is staged):
+- **Logitech G Yeti Orb**: USB-C only; the 2i2 has XLR mic inputs.
+- **RODE PSA1**: 3/8 inch thread only, and the SM58-LC is 5/8 inch with no adapter in its box. In the live run the AI also noted the SM58 is below the PSA1's 700 g minimum load, so the arm would spring up.
 
 Shipping beats for the video:
 - line-1 ships as `Scarlett 2i2 4th Gen` → charged.
@@ -21,4 +23,4 @@ Shipping beats for the video:
 - line-2 ships as `SM58S` (the switch variant) → not charged.
 - Finish order → the rest is released.
 
-Timing of one live `/api/bundle` call: not measured yet (B fills this in).
+Timing of one live `/api/bundle` call: **64 s** (2 Nov, production build on a laptop, `gemini-3.1-pro-preview`). Too long to show uncut on video: cut or speed up the wait, and show per-part progress in the UI.

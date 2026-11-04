@@ -1,8 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { authorizeOrder, closeOrder, createOrder, shipLine, type Deps } from "@/lib/orders";
-import { mockPayPal, mockCapturedCents } from "@/lib/paypal-mock";
-import { orders, resetOrder } from "@/lib/store";
-import type { Line, ShipVerdict } from "@/lib/types";
+import {
+  authorizeOrder,
+  cancelLine,
+  closeOrder,
+  createOrder,
+  resetOrderSafely,
+  shipLine,
+  sweepStale,
+  type Deps,
+} from "@/lib/orders";
+import { mockPayPal, mockCapturedCents, mockIsVoided } from "@/lib/paypal-mock";
+import { PayPalError } from "@/lib/paypal";
+import { getPhoto, orders, pruneOld, resetOrder } from "@/lib/store";
+import type { Line, ShipPhoto, ShipVerdict } from "@/lib/types";
+
+/** A real 1x1 PNG: the smallest photo parsePhoto accepts. */
+const PHOTO: ShipPhoto = {
+  mime: "image/png",
+  data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+};
 
 function exactStub(line: Line, shipped: string): Promise<ShipVerdict> {
   const ok = shipped === "SM58-LC";
@@ -10,6 +26,7 @@ function exactStub(line: Line, shipped: string): Promise<ShipVerdict> {
     line_id: "ignored-by-code",
     match: ok,
     matched_variant: ok ? "SM58-LC" : null,
+    label_text: shipped,
     reason: ok ? "match" : "different variant",
     action: ok ? "CAPTURE" : "DO_NOT_CAPTURE",
   });
@@ -32,7 +49,7 @@ async function authorised(deps: Deps) {
 }
 
 const ship = (orderId: string, line_id: string, shipped_model: string, deps: Deps) =>
-  shipLine({ orderId, line_id, shipped_model, tracking_number: "DEMO123" }, deps);
+  shipLine({ orderId, line_id, shipped_model, tracking_number: "DEMO123", photo: PHOTO }, deps);
 
 beforeEach(() => orders.clear());
 
@@ -93,11 +110,46 @@ describe("ship", () => {
     expect(mockCapturedCents(orders.get(id)!.lines[1].auth_id!)).toBe(21800);
   });
 
-  it("refuses to charge a NOT_CHARGED line later", async () => {
+  it("allows exactly one repack after a wrong variant (R-M1, proposed)", async () => {
+    const deps = makeDeps();
+    const id = await authorised(deps);
+    const first = await ship(id, "line-2", "SM58S", deps);
+    expect(first.line.state).toBe("NOT_CHARGED");
+    expect(first.checks_left).toBe(1);
+    const second = await ship(id, "line-2", "SM58-LC", deps); // merchant repacked the right part
+    expect(second.line.state).toBe("CAPTURED");
+    expect(mockCapturedCents(second.line.auth_id!)).toBe(21800);
+  });
+
+  it("cancels the line for good after a second wrong variant", async () => {
+    const capture = vi.fn(mockPayPal.captureAuthorization);
+    const deps = makeDeps({ paypal: { ...mockPayPal, captureAuthorization: capture } });
+    const id = await authorised(deps);
+    await ship(id, "line-2", "SM58S", deps);
+    const second = await ship(id, "line-2", "SM58S", deps);
+    expect(second.checks_left).toBe(0);
+    await expect(ship(id, "line-2", "SM58-LC", deps)).rejects.toMatchObject({ status: 409 });
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("a blocked line can be cancelled instead of repacked, and then never rechecked", async () => {
     const deps = makeDeps();
     const id = await authorised(deps);
     await ship(id, "line-2", "SM58S", deps);
+    expect(cancelLine({ orderId: id, line_id: "line-2" }).line.cancel_reason).toBeTruthy();
     await expect(ship(id, "line-2", "SM58-LC", deps)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("an AI failure during the repack does not use up the repack", async () => {
+    const deps = makeDeps();
+    const id = await authorised(deps);
+    await ship(id, "line-2", "SM58S", deps);
+    const broken = makeDeps({ checkShipped: () => Promise.reject(new Error("timeout")) });
+    await expect(ship(id, "line-2", "SM58-LC", broken)).rejects.toMatchObject({ status: 502 });
+    const line = orders.get(id)!.lines[1];
+    expect(line.state).toBe("NOT_CHARGED");
+    expect(line.checks).toBe(1);
+    expect((await ship(id, "line-2", "SM58-LC", deps)).line.state).toBe("CAPTURED");
   });
 
   it("blocks a concurrent second click while the first check is running", async () => {
@@ -116,6 +168,30 @@ describe("ship", () => {
     const id = await authorised(deps);
     await expect(ship(id, "line-2", "SM58-LC", deps)).rejects.toMatchObject({ status: 502 });
     expect(orders.get(id)!.lines[1].state).toBe("AUTHORISED");
+    expect(orders.get(id)!.lines[1].has_photo).toBe(false);
+    expect(getPhoto(id, "line-2")).toBeUndefined();
+  });
+
+  it("needs a real label photo before claiming the line", async () => {
+    const deps = makeDeps();
+    const id = await authorised(deps);
+    const base = { orderId: id, line_id: "line-2", shipped_model: "SM58-LC", tracking_number: "DEMO123" };
+    await expect(shipLine(base, deps)).rejects.toMatchObject({ status: 400, message: "photo_required" });
+    await expect(shipLine({ ...base, photo: { mime: "image/png", data: "aGVsbG8=" } }, deps)).rejects.toMatchObject({ message: "bad_photo" });
+    await expect(shipLine({ ...base, photo: { ...PHOTO, mime: "image/gif" as ShipPhoto["mime"] } }, deps)).rejects.toMatchObject({ message: "bad_photo" });
+    expect(orders.get(id)!.lines[1].state).toBe("AUTHORISED");
+  });
+
+  it("keeps the label photo as evidence, charged or not, and passes it to the check", async () => {
+    const check = vi.fn(exactStub);
+    const deps = makeDeps({ checkShipped: check });
+    const id = await authorised(deps);
+    await shipLine({ orderId: id, line_id: "line-2", shipped_model: "SM58S", tracking_number: "DEMO1", photo: PHOTO, sample_label: "sm58s" }, deps);
+    expect(check).toHaveBeenCalledWith(expect.objectContaining({ line_id: "line-2" }), "SM58S", PHOTO, "sm58s");
+    expect(orders.get(id)!.lines[1]).toMatchObject({ state: "NOT_CHARGED", has_photo: true });
+    expect(getPhoto(id, "line-2")).toEqual(PHOTO);
+    resetOrder(id);
+    expect(getPhoto(id, "line-2")).toBeUndefined();
   });
 
   it("marks CAPTURE_FAILED when PayPal does not complete the capture", async () => {
@@ -140,7 +216,7 @@ describe("ship", () => {
   it("rejects bad tracking numbers before claiming the line", async () => {
     const deps = makeDeps();
     const id = await authorised(deps);
-    await expect(shipLine({ orderId: id, line_id: "line-2", shipped_model: "SM58-LC", tracking_number: "<script>" }, deps))
+    await expect(shipLine({ orderId: id, line_id: "line-2", shipped_model: "SM58-LC", tracking_number: "<script>", photo: PHOTO }, deps))
       .rejects.toMatchObject({ status: 400 });
     expect(orders.get(id)!.lines[1].state).toBe("AUTHORISED");
   });
@@ -186,12 +262,231 @@ describe("close", () => {
     expect(o.released_cents).toBe(0);
   });
 
-  it("carries on when a void fails", async () => {
-    const deps = makeDeps({ paypal: { ...mockPayPal, voidAuthorization: async () => Promise.reject(new Error("x")) } });
+  it("never reports money as released when the void failed, and a retry finishes the job (R-P4)", async () => {
+    const refuse = new PayPalError(422, JSON.stringify({ details: [{ issue: "CANNOT_BE_VOIDED" }] }), "void");
+    const failing = makeDeps({ paypal: { ...mockPayPal, voidAuthorization: async () => Promise.reject(refuse) } });
+    const id = await authorised(failing);
+    await expect(closeOrder(id, failing)).rejects.toMatchObject({ status: 502, message: "release_failed" });
+    const open = orders.get(id)!;
+    expect(open.status).toBe("AUTHORISED");
+    expect(open.released_cents).toBeUndefined();
+    expect(open.lines.every((l) => l.state === "AUTHORISED")).toBe(true);
+    expect(open.events.some((e) => e.includes("VOID_FAILED"))).toBe(true);
+
+    const o = await closeOrder(id, makeDeps()); // PayPal cooperates on the retry
+    expect(o.status).toBe("CLOSED");
+    expect(o.lines.every((l) => l.state === "VOIDED")).toBe(true);
+    expect(o.released_cents).toBe(22499 + 21800 + 19600);
+  });
+
+  it("treats a void whose reply was lost as done, after checking PayPal (R-P4)", async () => {
+    const deps = makeDeps({
+      paypal: {
+        ...mockPayPal,
+        voidAuthorization: async (...args) => {
+          await mockPayPal.voidAuthorization(...args);
+          throw new PayPalError(0, "timeout", "void");
+        },
+      },
+    });
     const id = await authorised(deps);
     const o = await closeOrder(id, deps);
     expect(o.status).toBe("CLOSED");
-    expect(o.events.some((e) => e.includes("VOID_FAILED"))).toBe(true);
+    expect(o.events.some((e) => e.includes("VOID_CONFIRMED_BY_LOOKUP"))).toBe(true);
+  });
+});
+
+describe("unconfirmed holds (R-P5)", () => {
+  it("keeps the authorisation ID so close can release it, and never charges the line", async () => {
+    const pending = makeDeps({
+      paypal: {
+        ...mockPayPal,
+        authorizeOrder: async (orderId, requestId) => {
+          const r = await mockPayPal.authorizeOrder(orderId, requestId);
+          return {
+            ...r,
+            purchase_units: r.purchase_units.map((u) => ({
+              ...u,
+              payments: { authorizations: (u.payments?.authorizations ?? []).map((a) => ({ ...a, status: "PENDING" })) },
+            })),
+          };
+        },
+      },
+    });
+    const created = await createOrder(LINES, pending);
+    const o = await authorizeOrder(created.orderId, pending);
+    expect(o.status).toBe("CREATED");
+    expect(o.lines.every((l) => l.state === "IN_BUNDLE" && l.auth_id)).toBe(true);
+    await expect(ship(o.orderId, "line-2", "SM58-LC", pending)).rejects.toMatchObject({ status: 409 });
+
+    const closed = await closeOrder(o.orderId, makeDeps());
+    expect(closed.status).toBe("CLOSED");
+    expect(closed.lines.every((l) => l.state === "VOIDED")).toBe(true);
+    expect(mockIsVoided(closed.lines[0].auth_id!)).toBe(true);
+  });
+});
+
+describe("auto-close and safe reset (R-S2)", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it("releases and closes orders open for 24 h; never deletes an open order", async () => {
+    const deps = makeDeps();
+    const old = await authorised(deps);
+    const fresh = await authorised(deps);
+    orders.get(old)!.created_at = Date.now() - DAY - 60_000;
+
+    pruneOld(); // must not delete the old order: it still holds money
+    expect(orders.has(old)).toBe(true);
+
+    expect(await sweepStale(deps)).toEqual([old]);
+    expect(orders.get(old)!.status).toBe("CLOSED");
+    expect(mockIsVoided(orders.get(old)!.lines[0].auth_id!)).toBe(true);
+    expect(orders.get(fresh)!.status).toBe("AUTHORISED");
+
+    pruneOld(Date.now() + DAY + 60_000); // a day after closing, the closed order is forgotten
+    expect(orders.has(old)).toBe(false);
+    expect(orders.has(fresh)).toBe(true); // still open, so still kept
+  });
+
+  it("'Start over' releases the hold before forgetting the order", async () => {
+    const deps = makeDeps();
+    const id = await authorised(deps);
+    const authId = orders.get(id)!.lines[0].auth_id!;
+    expect(await resetOrderSafely(id, deps)).toEqual({ cleared: true });
+    expect(orders.has(id)).toBe(false);
+    expect(mockIsVoided(authId)).toBe(true);
+  });
+
+  it("'Start over' keeps an order whose hold could not be released", async () => {
+    const failing = makeDeps({
+      paypal: { ...mockPayPal, voidAuthorization: async () => Promise.reject(new PayPalError(503, "{}", "void")) },
+    });
+    const id = await authorised(failing);
+    expect(await resetOrderSafely(id, failing)).toEqual({ cleared: false, deferred: true });
+    expect(orders.has(id)).toBe(true);
+  });
+});
+
+describe("uncertain charges (risk R-P3)", () => {
+  const timeout = () => new PayPalError(0, "The operation was aborted due to timeout", "POST capture");
+
+  it("confirms a charge that went through even though the reply was lost", async () => {
+    const deps = makeDeps({
+      paypal: {
+        ...mockPayPal,
+        captureAuthorization: async (...args) => {
+          await mockPayPal.captureAuthorization(...args); // PayPal took the money...
+          throw timeout(); // ...but the reply never arrived
+        },
+      },
+    });
+    const id = await authorised(deps);
+    const r = await ship(id, "line-2", "SM58-LC", deps);
+    expect(r.captured).toBe(true);
+    expect(r.line.state).toBe("CAPTURED");
+    expect(r.line.capture_uncertain).toBeUndefined();
+    expect(mockCapturedCents(r.line.auth_id!)).toBe(21800);
+  });
+
+  it("says 'do not ship' when the charge never happened, then close confirms and releases", async () => {
+    const deps = makeDeps({ paypal: { ...mockPayPal, captureAuthorization: async () => Promise.reject(timeout()) } });
+    const id = await authorised(deps);
+    const r = await ship(id, "line-2", "SM58-LC", deps);
+    expect(r.captured).toBe(false);
+    expect(r.line.state).toBe("CAPTURE_FAILED");
+    expect(r.line.capture_uncertain).toBe(true);
+    expect(r.line.error).toMatch(/Do not ship/);
+
+    const o = await closeOrder(id, makeDeps());
+    expect(o.status).toBe("CLOSED");
+    expect(o.lines[1].capture_uncertain).toBeUndefined();
+    expect(o.lines[1].state).toBe("CAPTURE_FAILED");
+    expect(mockIsVoided(o.lines[1].auth_id!)).toBe(true);
+  });
+
+  it("finds a late charge at close and tells the merchant to ship", async () => {
+    const lateDeps = makeDeps({
+      paypal: {
+        ...mockPayPal,
+        captureAuthorization: async (...args) => {
+          await mockPayPal.captureAuthorization(...args);
+          throw timeout();
+        },
+        getOrder: async () => Promise.reject(timeout()), // lookup also fails at ship time
+      },
+    });
+    const id = await authorised(lateDeps);
+    const r = await ship(id, "line-2", "SM58-LC", lateDeps);
+    expect(r.line.state).toBe("CAPTURE_FAILED");
+    expect(r.line.capture_uncertain).toBe(true);
+
+    const o = await closeOrder(id, makeDeps()); // PayPal reachable again
+    expect(o.lines[1].state).toBe("CAPTURED");
+    expect(o.lines[1].error).toMatch(/Ship this part/);
+    expect(o.released_cents).toBe(22499 + 19600); // the late charge is NOT counted as released
+  });
+
+  it("releases nothing while PayPal cannot confirm a charge", async () => {
+    const down = makeDeps({
+      paypal: {
+        ...mockPayPal,
+        captureAuthorization: async () => Promise.reject(timeout()),
+        getOrder: async () => Promise.reject(timeout()),
+      },
+    });
+    const id = await authorised(down);
+    await ship(id, "line-2", "SM58-LC", down);
+    await expect(closeOrder(id, down)).rejects.toMatchObject({ status: 503 });
+    expect(orders.get(id)!.status).toBe("AUTHORISED");
+    expect(mockIsVoided(orders.get(id)!.lines[0].auth_id!)).toBe(false);
+  });
+
+  it("does not look anything up after a clear refusal", async () => {
+    const getOrder = vi.fn(mockPayPal.getOrder);
+    const deps = makeDeps({
+      paypal: {
+        ...mockPayPal,
+        getOrder,
+        captureAuthorization: async () =>
+          Promise.reject(new PayPalError(422, JSON.stringify({ details: [{ issue: "AUTHORIZATION_VOIDED" }] }), "capture")),
+      },
+    });
+    const id = await authorised(deps);
+    const r = await ship(id, "line-2", "SM58-LC", deps);
+    expect(r.line.state).toBe("CAPTURE_FAILED");
+    expect(r.line.capture_uncertain).toBeUndefined();
+    expect(getOrder).not.toHaveBeenCalled();
+  });
+});
+
+describe("can't fulfil (R-M2, proposed)", () => {
+  it("cancels a held line with no AI or PayPal call, and close releases it", async () => {
+    const capture = vi.fn(mockPayPal.captureAuthorization);
+    const check = vi.fn(exactStub);
+    const deps = makeDeps({ paypal: { ...mockPayPal, captureAuthorization: capture }, checkShipped: check });
+    const id = await authorised(deps);
+    const { line } = cancelLine({ orderId: id, line_id: "line-2", reason: "Out of stock <b>!" });
+    expect(line.state).toBe("NOT_CHARGED");
+    expect(line.cancel_reason).toBe("Out of stock b");
+    expect(capture).not.toHaveBeenCalled();
+    expect(check).not.toHaveBeenCalled();
+
+    await expect(ship(id, "line-2", "SM58-LC", deps)).rejects.toMatchObject({ status: 409 });
+    const o = await closeOrder(id, deps);
+    expect(o.released_cents).toBe(22499 + 21800 + 19600);
+  });
+
+  it("refuses to cancel a part that was already charged", async () => {
+    const deps = makeDeps();
+    const id = await authorised(deps);
+    await ship(id, "line-2", "SM58-LC", deps);
+    let err: unknown;
+    try {
+      cancelLine({ orderId: id, line_id: "line-2" });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toMatchObject({ status: 409 });
   });
 });
 

@@ -6,8 +6,8 @@ import { PDFParse } from "pdf-parse";
 import { buildBundle } from "../lib/bundle";
 import { getProduct } from "../lib/catalogue";
 import { specPath } from "../lib/ai";
+import { quoteInText } from "../lib/trust";
 
-const flat = (s: string) => s.toLowerCase().replace(/[\s‐-―-]+/g, " ").replace(/[^\w ]/g, "").trim();
 const goal = process.argv[2] ?? "Podcast setup for 2 people under $900";
 const b = await buildBundle(goal);
 const verdicts = [...b.lines.map((l) => l.verdict!), ...b.rejected.map((r) => r.verdict)];
@@ -21,7 +21,7 @@ for (const v of verdicts) {
       continue;
     }
     const text = (await new PDFParse({ data: fs.readFileSync(specPath(p)) }).getText()).text;
-    const found = flat(text).includes(flat(e.quote));
+    const found = quoteInText(text, e.quote);
     if (!found) bad++;
     console.log(`${found ? "FOUND  " : "MISSING"}  ${p.id}: "${e.quote}"`);
   }
