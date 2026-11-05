@@ -62,6 +62,20 @@ What can go wrong, what the code does today, and the exact alternative. Written 
 | R-S5 | A secret leaks | Never in the repo (`.env*.local` ignored); only the public client ID reaches the browser | Rotate the Secret in the PayPal dashboard, update Render, redeploy | Process |
 | R-S6 | Sandbox logins or the judge account stop working | Judges cannot test | Rebuild from `docs/sandbox-runbook.md`; weekly judge-login check (A-31) | Process |
 
+## Channel3 live prices (D)
+
+Added 5 Nov 2026 by D, against the plan in `docs/channel3.md`. Live prices only run when `LIVE_PRICES=1`; with `LIVE_PRICES=0` (the default) every price comes from `data/catalogue.json`. **Planned** = agreed in `docs/channel3.md` but not yet merged; each says which Friday test (D-C5, Fri 6 Nov) checks it. Change it to Built once that test passes.
+
+| ID | Risk | What happens now | Alternative / next step | Status |
+|---|---|---|---|---|
+| R-C1 | Channel3 is down, slow, or the key is wrong | Each lookup falls back to the fixed catalogue price (`price_usd`), shown as "price checked {date}"; the bundle still builds and nothing crashes | Verify with a wrong key (D-C5 test B) | Planned (verify Fri 6 Nov) |
+| R-C2 | Channel3 credits run out | The app only uses lookups (`GET /products/{id}`), which are free; only `/search` costs 1 credit, and the app never calls it | Check the Channel3 dashboard balance weekly until 15 Dec (D-31) | Process (D) |
+| R-C3 | The live price changes between the video and judging, so judges see a different total | The video's main flow is recorded with `LIVE_PRICES=0` ($871.19) | The Devpost testing note says prices are live and may differ from the video | Process (D) |
+| R-C4 | A listing goes out of stock, used-only, or changes | Used and out-of-stock offers are never shown; that product falls back to its fixed price | Check the mapping during the weekly judging check (D-31) | Planned (verify Fri 6 Nov) |
+| R-C5 | The wrong Channel3 listing is linked to a product | Each `channel3_id` was hand-picked and tested: 22 of 23 mapped, 115/115 lookups repeatable; SM58-LC and SM58S have separate IDs; `stand-psa1` has none and always uses its fixed price | Spot-check 3 products against retailer pages (D-C5 test E) | Built (data) + verify Fri 6 Nov |
+| R-C6 | The Channel3 key leaks | Only in `.env.local` (ignored by git) and Render's environment variables; never in the repo, the group chat or a shared doc | Create a new key in the Channel3 dashboard, delete the old one, update the builder's `.env.local` and Render, redeploy | Process (D) |
+| R-C7 | A live price changes which product is cheapest, so the demo bundle changes | Depends on whether the cheapest-first order uses `price_usd` or the live price (question open with B) | If it uses the live price: sort on `price_usd` and only display the live price, so the bundle never changes | Open (B to confirm) |
+
 ## What C needs to change for these rows
 
 1. Show the API's `message` for `paypal_error`, `release_failed`, `paypal_unreachable` and `payment_pending` (the existing `api()` helper already does), and keep the Finish button available after a 502 or 503.
