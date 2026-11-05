@@ -43,17 +43,20 @@ export function resetOrder(orderId: string): boolean {
   return orders.delete(orderId);
 }
 
-export function savePhoto(orderId: string, lineId: string, photo: ShipPhoto): void {
+// A line can have several photos (one per label check, D5), numbered from 1.
+const photoKey = (lineId: string, n: number) => `${lineId}#${n}`;
+
+export function savePhoto(orderId: string, lineId: string, n: number, photo: ShipPhoto): void {
   if (!photos.has(orderId)) photos.set(orderId, new Map());
-  photos.get(orderId)!.set(lineId, photo);
+  photos.get(orderId)!.set(photoKey(lineId, n), photo);
 }
 
-export function getPhoto(orderId: string, lineId: string): ShipPhoto | undefined {
-  return photos.get(orderId)?.get(lineId);
+export function getPhoto(orderId: string, lineId: string, n: number): ShipPhoto | undefined {
+  return photos.get(orderId)?.get(photoKey(lineId, n));
 }
 
-export function deletePhoto(orderId: string, lineId: string): void {
-  photos.get(orderId)?.delete(lineId);
+export function deletePhoto(orderId: string, lineId: string, n: number): void {
+  photos.get(orderId)?.delete(photoKey(lineId, n));
 }
 
 export function logEvent(order: Order, event: string): void {

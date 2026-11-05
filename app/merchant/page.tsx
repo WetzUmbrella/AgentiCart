@@ -5,11 +5,34 @@ import { api, ApiError, usd } from "@/lib/client";
 import { preparePhoto, type PreparedPhoto } from "@/lib/image-client";
 import { SAMPLE_LABELS, sampleLabelUrl, type SampleLabel } from "@/lib/sample-labels";
 import type { Order, ShipVerdict, Line } from "@/lib/types";
-import { STATE_LABEL } from "@/lib/labels";
+import { lineRowState, STATE_LABEL } from "@/lib/labels";
+import { canShip, checksLeft } from "@/lib/ship-rules";
 
-type ShipResult = { verdict: ShipVerdict; captured: boolean; capture_id?: string; line: Line };
+type ShipResult = { verdict: ShipVerdict; captured: boolean; capture_id?: string; line: Line; checks_left: number };
 
-const photoUrl = (orderId: string, lineId: string) => `/api/orders/${orderId}/photo/${lineId}`;
+const photoUrl = (orderId: string, lineId: string, n?: number) =>
+  `/api/orders/${orderId}/photo/${lineId}${n ? `?n=${n}` : ""}`;
+
+/** What the merchant should do about a line, in one short line. */
+function lineNote(l: Line): string | null {
+  if (l.capture_uncertain) return "Do not ship yet. PayPal has not confirmed this charge.";
+  if (l.cancel_reason) return `Can't fulfil: ${l.cancel_reason}`;
+  if (l.state === "CAPTURED") return l.error ?? "Charged. Ship this part.";
+  if (l.state === "NOT_CHARGED") {
+    const left = checksLeft(l);
+    return left > 0 ? "Wrong part. Pack the checked model and recheck once." : "Not charged. No checks left.";
+  }
+  if (l.state === "AUTHORISED" && l.verdict?.unreadable) return "Label unreadable. Retake the photo.";
+  return l.error ?? null;
+}
+
+/** The headline of the verdict panel. */
+function verdictTitle(r: ShipResult): string {
+  if (r.captured) return `Charged ${usd(r.line.amount_cents)}`;
+  if (r.line.capture_uncertain) return "Do not ship yet";
+  if (r.verdict.unreadable) return "Label unreadable";
+  return "Not charged";
+}
 
 function Console() {
   const params = useSearchParams();
@@ -28,6 +51,11 @@ function Console() {
   const [result, setResult] = useState<ShipResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
+  // "Can't fulfil": open while the merchant is confirming, with an optional reason.
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [finishing, setFinishing] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
 
   // The verdict is the moment that matters on video: bring it into view.
   useEffect(() => {
@@ -56,9 +84,11 @@ function Console() {
     return () => clearInterval(t);
   }, [orderId]);
 
-  const open = order?.lines.filter((l) => l.state === "AUTHORISED") ?? [];
+  const open = order?.lines.filter(canShip) ?? [];
   // The chosen part, or the first one still waiting to ship.
   const selected = open.some((l) => l.line_id === lineId) ? lineId : open[0]?.line_id ?? "";
+  const selectedLine = open.find((l) => l.line_id === selected);
+  const isRecheck = selectedLine?.state === "NOT_CHARGED";
 
   if (!orderId) {
     return (
@@ -116,23 +146,47 @@ function Console() {
         },
       });
       setResult(r);
+      setLineId(r.line.line_id); // a blocked part with a recheck left stays selected
       setModel("");
-      setTracking("");
+      if (r.captured) setTracking("");
       clearPhoto();
       refresh(orderId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Shipping failed.");
+      refresh(orderId);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelPart = async () => {
+    if (!selectedLine) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/api/cancel-line", { body: { orderId, line_id: selectedLine.line_id, reason: cancelReason } });
+      setCancelling(false);
+      setCancelReason("");
+      setResult(null);
+      refresh(orderId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not cancel this part.");
     } finally {
       setBusy(false);
     }
   };
 
   const finish = async () => {
+    setFinishing(true);
+    setFinishError(null);
     try {
       await api(`/api/orders/${orderId}/close`, { method: "POST" });
-      refresh(orderId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not finish the order.");
+      // 409 still processing, 502 release failed, 503 PayPal unreachable: the order stays open; Finish can be retried.
+      setFinishError(err instanceof Error ? err.message : "Could not finish the order.");
+    } finally {
+      setFinishing(false);
+      refresh(orderId);
     }
   };
 
@@ -140,32 +194,52 @@ function Console() {
     <div className="workspace">
       <div className="stack">
         {result && (
-          <div ref={resultRef} className={`verdict-panel ${result.captured ? "ok" : "no"}`} aria-live="polite">
-            <div className="big">
-              {result.captured ? `Charged ${usd(result.line.amount_cents)}` : "Not charged"}
-            </div>
+          <div
+            ref={resultRef}
+            className={`verdict-panel ${result.captured ? "ok" : result.line.capture_uncertain ? "warn" : "no"}`}
+            aria-live="polite"
+          >
+            <div className="big">{verdictTitle(result)}</div>
             <div className="verdict-evidence">
               {/* eslint-disable-next-line @next/next/no-img-element -- evidence photo served by our API */}
-              <img src={photoUrl(orderId, result.line.line_id)} alt={`Label photo for ${result.line.name}`} />
+              <img
+                src={photoUrl(orderId, result.line.line_id, result.line.photo_count)}
+                alt={`Label photo for ${result.line.name}`}
+              />
               <div className="stack" style={{ gap: 6 }}>
+                <p>
+                  <strong>{result.line.name}</strong>
+                </p>
                 <p>
                   <strong>Label reads:</strong> {result.verdict.label_text ? `“${result.verdict.label_text}”` : "unreadable"}
                 </p>
                 <p>{result.verdict.reason}</p>
+                {result.line.state === "CAPTURE_FAILED" && <p><strong>{result.line.error}</strong></p>}
+                {!result.captured && result.verdict.unreadable && (
+                  <p className="small">This check was not counted. Take a clearer photo of the label and try again.</p>
+                )}
+                {!result.captured && !result.verdict.unreadable && result.line.state === "NOT_CHARGED" && (
+                  <p className="small">
+                    {result.checks_left > 0
+                      ? "Pack the checked model and recheck it once, or mark the part as one you can't fulfil."
+                      : "No checks left. This part won't be charged; its hold is released when the order is finished."}
+                  </p>
+                )}
+                {result.verdict.mock && <p className="small muted">Mock AI verdict.</p>}
               </div>
             </div>
-            {result.line.state === "CAPTURE_FAILED" && <p>{result.line.error}</p>}
-            {result.verdict.mock && <p className="small">Mock AI verdict.</p>}
           </div>
         )}
         <div className="panel stack">
-          <h1>Mark a part as shipped</h1>
+          <h1>{isRecheck ? "Recheck a repacked part" : "Mark a part as shipped"}</h1>
           <p className="muted">
             Photograph the label on the box and enter the model you are shipping. The part is charged only if the photo
             shows exactly the model that was checked.
           </p>
           {order?.status === "CLOSED" ? (
             <p className="notice info">This order is finished. Nothing more can be shipped.</p>
+          ) : !order ? (
+            <p className="muted">Loading the order…</p>
           ) : open.length === 0 ? (
             <p className="notice info">Every part on this order has been processed. Finish the order to release the rest of the hold.</p>
           ) : (
@@ -212,10 +286,16 @@ function Console() {
               <div className="form-grid">
                 <label>
                   Part
-                  <select value={selected} onChange={(e) => setLineId(e.target.value)}>
+                  <select
+                    value={selected}
+                    onChange={(e) => {
+                      setLineId(e.target.value);
+                      setCancelling(false);
+                    }}
+                  >
                     {open.map((l) => (
                       <option key={l.line_id} value={l.line_id}>
-                        {l.name} ({usd(l.amount_cents)})
+                        {l.name} ({usd(l.amount_cents)}){l.state === "NOT_CHARGED" ? " · recheck" : ""}
                       </option>
                     ))}
                   </select>
@@ -235,32 +315,100 @@ function Console() {
                   <input type="text" value={tracking} maxLength={40} required pattern="[A-Za-z0-9\-]{1,40}" onChange={(e) => setTracking(e.target.value)} placeholder="e.g. DEMO123" />
                 </label>
               </div>
-              <div className="row">
+              {isRecheck && selectedLine && (
+                <p className="notice warn small">
+                  The last check found the wrong part. This is the last check for {selectedLine.name}: if the label still
+                  doesn&apos;t show the checked model, the part is not charged.
+                </p>
+              )}
+              <div className="row form-actions">
                 <button type="submit" disabled={busy || preparing || !selected || !photo}>
-                  {busy ? "Reading the label…" : "Mark shipped"}
+                  {busy && !cancelling ? "Reading the label…" : isRecheck ? "Recheck" : "Mark shipped"}
                 </button>
                 {!photo && <span className="small muted">Add a label photo first.</span>}
+                <button
+                  type="button"
+                  className="quiet push-right"
+                  disabled={busy || !selectedLine}
+                  onClick={() => setCancelling((c) => !c)}
+                  aria-expanded={cancelling}
+                >
+                  Can&apos;t fulfil this part
+                </button>
               </div>
+              {cancelling && selectedLine && (
+                <div className="cancel-box stack" role="group" aria-label="Can't fulfil this part">
+                  <p className="small">
+                    <strong>{selectedLine.name}</strong> will not be charged, and its share of the hold is released when the
+                    order is finished. This can&apos;t be undone.
+                  </p>
+                  <label>
+                    Reason (optional, shown to the shopper)
+                    <input
+                      type="text"
+                      value={cancelReason}
+                      maxLength={120}
+                      placeholder="e.g. Out of stock"
+                      onChange={(e) => setCancelReason(e.target.value)}
+                    />
+                  </label>
+                  <div className="row">
+                    <button type="button" className="danger" disabled={busy} onClick={cancelPart}>
+                      {busy ? "Cancelling…" : "Don't charge this part"}
+                    </button>
+                    <button type="button" className="secondary" disabled={busy} onClick={() => setCancelling(false)}>
+                      Keep it
+                    </button>
+                  </div>
+                </div>
+              )}
             </form>
           )}
           {error && <p className="notice error" role="alert">{error}</p>}
         </div>
-
       </div>
 
       <aside className="panel stack">
-        <h2>Order {orderId}</h2>
-        <table className="plain small">
-          <tbody>
-            {order?.lines.map((l) => (
-              <tr key={l.line_id}>
-                <td>{l.name}</td>
-                <td className={`state ${l.state}`}>{STATE_LABEL[l.state]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {order && order.status !== "CLOSED" && <button className="secondary" onClick={finish}>Finish order</button>}
+        <div className="stack" style={{ gap: 4 }}>
+          <h2>Order</h2>
+          <span className="small muted order-id">{orderId}</span>
+        </div>
+        <ul className="order-lines">
+          {order?.lines.map((l) => {
+            const rs = lineRowState(l);
+            const note = lineNote(l);
+            const photos = l.attempts?.length ?? 0;
+            return (
+              <li key={l.line_id}>
+                <div className="order-line-head">
+                  <span>{l.name}</span>
+                  <span className={`state ${rs}`}>{STATE_LABEL[rs]}</span>
+                </div>
+                {note && <span className={`small ${l.capture_uncertain ? "note-warn" : "muted"}`}>{note}</span>}
+                {photos > 0 && (
+                  <span className="small muted">
+                    Label {photos === 1 ? "photo" : "photos"}:{" "}
+                    {l.attempts!.map((a, i) => (
+                      <span key={a.photo}>
+                        {i > 0 && " · "}
+                        <a href={photoUrl(orderId, l.line_id, a.photo)} target="_blank" rel="noreferrer">
+                          {a.verdict.action === "CAPTURE" ? "matched" : a.verdict.unreadable ? "unreadable" : "wrong part"}
+                          <span aria-hidden="true"> ↗</span>
+                        </a>
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        {finishError && <p className="notice error small" role="alert">{finishError}</p>}
+        {order && order.status !== "CLOSED" && (
+          <button className="secondary" onClick={finish} disabled={finishing}>
+            {finishing ? "Finishing…" : finishError ? "Try Finish again" : "Finish order"}
+          </button>
+        )}
         {order?.status === "CLOSED" && <p>Released {usd(order.released_cents ?? 0)} back to the shopper.</p>}
       </aside>
     </div>

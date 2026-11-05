@@ -12,8 +12,8 @@ export default function Ledger({ totals, planned, closed }: { totals: Totals; pl
       <h2>Your money</h2>
       {totals.authorised === 0 ? (
         <p className="muted">
-          Nothing is held or charged yet. Bundle total {usd(planned)}. When you approve, PayPal holds this amount and
-          charges each part only after its shipped model is confirmed.
+          Nothing is held or charged yet.{planned > 0 ? ` Bundle total ${usd(planned)}.` : ""} When you approve, PayPal
+          holds the bundle total and charges each part only after its shipped model is confirmed.
         </p>
       ) : (
         <div className="meter" role="img" aria-label="Charged, held and released share of the approved amount">
@@ -42,8 +42,14 @@ export default function Ledger({ totals, planned, closed }: { totals: Totals; pl
         )}
         {!closed && totals.notCharged > 0 && (
           <p className="small muted">
-            {usd(totals.notCharged)} of that is for parts that failed the check. It is released when you finish the
+            {usd(totals.notCharged)} of that is for parts that won&apos;t be charged. It is released when you finish the
             order.
+          </p>
+        )}
+        {!closed && totals.confirming > 0 && (
+          <p className="small muted">
+            PayPal is still confirming whether {usd(totals.confirming)} was charged. It is settled before anything is
+            released.
           </p>
         )}
         {closed && (

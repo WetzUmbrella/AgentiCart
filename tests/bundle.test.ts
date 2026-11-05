@@ -61,3 +61,39 @@ describe("bundle builder (mock AI)", () => {
     expect(b.budget_warning).toMatch(/over your \$500 budget/);
   });
 });
+
+describe("bundle progress", () => {
+  it("reports the goal, each audit and each settled category, in order", async () => {
+    const { buildBundle } = await import("@/lib/bundle");
+    const events: import("@/lib/types").BundleProgress[] = [];
+    const b = await buildBundle("Podcast setup for 2 people under $900", (e) => events.push(e));
+    expect(events[0]).toMatchObject({ type: "goal", categories: ["interface", "microphone", "cable", "stand", "headphones"] });
+    const steps = events.filter((e) => e.type === "step");
+    expect(steps.map((e) => e.step.category)).toEqual(b.search.steps.map((s) => s.category));
+    expect(steps.every((e) => e.picked)).toBe(true); // the demo goal fills every category
+    const checks = events.filter((e) => e.type === "checking");
+    expect(checks.length).toBe(b.lines.length + b.rejected.length);
+    // The microphone is checked against the interface already picked.
+    expect(checks.find((e) => e.category === "microphone")?.against).toHaveLength(1);
+  });
+});
+
+describe("POST /api/bundle?stream=1", () => {
+  it("streams NDJSON progress and ends with the same bundle as the plain reply", async () => {
+    const { POST } = await import("@/app/api/bundle/route");
+    const req = (q: string) =>
+      new Request(`http://x/api/bundle${q}`, { method: "POST", body: JSON.stringify({ goal: "Podcast setup for 2 people under $900" }) });
+    const plain = await (await POST(req(""))).json();
+    const res = await POST(req("?stream=1"));
+    expect(res.headers.get("Content-Type")).toMatch(/ndjson/);
+    const events = (await res.text()).trim().split("\n").map((l) => JSON.parse(l));
+    expect(events.at(-1)).toEqual({ type: "done", bundle: plain });
+    expect(events.some((e) => e.type === "checking")).toBe(true);
+  });
+
+  it("rejects a bad goal before streaming", async () => {
+    const { POST } = await import("@/app/api/bundle/route");
+    const res = await POST(new Request("http://x/api/bundle?stream=1", { method: "POST", body: JSON.stringify({ goal: "x" }) }));
+    expect(res.status).toBe(400);
+  });
+});

@@ -23,7 +23,7 @@ What can go wrong, what the code does today, and the exact alternative. Written 
 | R-P4 | A void fails, or its reply is lost | PayPal's record decides: VOIDED counts as released; otherwise close returns 502 `release_failed`, the order stays open, and money is never shown as released. A retry never voids the same authorisation twice | If PayPal refuses voids after partial captures: see the second fact above (honest "releases when it expires" wording) | Built |
 | R-P5 | PayPal returns an authorisation that is not CREATED (e.g. PENDING) | Its ID is kept so close can release it; the line stays IN_BUNDLE and can never be charged | Real version: wait for the `PAYMENT.AUTHORIZATION.CREATED` webhook | Built |
 | R-P6 | Shopper closes the tab after approving, before authorise runs | Order approved at PayPal but never held, so nothing can be charged; the approval lapses on its own | Authorise from the `CHECKOUT.ORDER.APPROVED` webhook as a backup | Next step |
-| R-P7 | Shopper cancels the PayPal popup, or PayPal declines the payment method | Order stays CREATED; nothing held; auto-closed after 24 h | C shows "Payment not approved, nothing was charged" (PayButton `onCancel` / `onError`) | Process (C) |
+| R-P7 | Shopper cancels the PayPal popup, or PayPal declines the payment method | Order stays CREATED; nothing held; auto-closed after 24 h | PayButton `onCancel`: "Payment not approved. Nothing was charged."; `onError` for a decline | Built |
 | R-P8 | A part is charged more than 3 days after approval (outside PayPal's honour period) | A refused capture becomes CAPTURE_FAILED, "Do not ship". Auto-close at 24 h means the demo never gets there | Real version: reauthorise after day 3, or one order per shipment | Next step |
 | R-P9 | One approval cannot pay several merchants with authorisations (go/no-go test 1) | Single-merchant by default: one purchase unit paid to the platform; merchant is a display label. PayPal's docs rule the combination out: AUTHORIZE allows one purchase unit per order, multi-seller checkout requires CAPTURE, and capturing on behalf of other merchants needs approved-partner onboarding | Pitch AgentCart as the seller; PayPal multi-seller onboarding on the next-step slide | Built |
 | R-P10 | PayPal Agent Toolkit `create_order` hard-codes CAPTURE and defaults to live | Toolkit not used; REST calls only | README says exactly that | Built + Process (D) |
@@ -46,8 +46,8 @@ What can go wrong, what the code does today, and the exact alternative. Written 
 
 | ID | Risk | What happens now | Alternative / next step | Status |
 |---|---|---|---|---|
-| R-M1 | Merchant packs the wrong variant | Blocked before dispatch, never charged. One repack allowed; a second mismatch cancels the line | C: "Recheck" button on a blocked line (uses `checks_left`) | Proposed |
-| R-M2 | Part goes out of stock after the shopper approved | "Can't fulfil" (`POST /api/cancel-line`) cancels the line; never charged; released at close | C: button on the merchant console | Proposed |
+| R-M1 | Merchant packs the wrong variant | Blocked before dispatch, never charged. One repack allowed; a second mismatch cancels the line | Merchant console: a blocked line with a check left shows "Recheck"; an unreadable photo is not counted (D3) | Built (kept 6 Nov) |
+| R-M2 | Part goes out of stock after the shopper approved | "Can't fulfil" (`POST /api/cancel-line`) cancels the line; never charged; released at close | Merchant console: "Can't fulfil this part" with an optional reason, shown to the shopper | Built (kept 6 Nov) |
 | R-M3 | Merchant types the right model but packs the wrong part | Not detectable: the check reads typed text, not the box | README limit. Next step: barcode scan or label photo matched to the catalogue | Next step |
 | R-M4 | Nobody finishes the order | Auto-closed and released after 24 h | None needed | Built |
 
@@ -62,8 +62,9 @@ What can go wrong, what the code does today, and the exact alternative. Written 
 | R-S5 | A secret leaks | Never in the repo (`.env*.local` ignored); only the public client ID reaches the browser | Rotate the Secret in the PayPal dashboard, update Render, redeploy | Process |
 | R-S6 | Sandbox logins or the judge account stop working | Judges cannot test | Rebuild from `docs/sandbox-runbook.md`; weekly judge-login check (A-31) | Process |
 
-## What C needs to change for these rows
+## What C changed for these rows (done 6 Nov)
 
-1. Show the API's `message` for `paypal_error`, `release_failed`, `paypal_unreachable` and `payment_pending` (the existing `api()` helper already does), and keep the Finish button available after a 502 or 503.
-2. Treat `capture_uncertain: true` as "Do not ship yet" on the merchant console.
-3. If R-M1 and R-M2 are kept: allow a NOT_CHARGED line with `checks_left > 0` to be shipped again, show `cancel_reason`, and add a "Can't fulfil" button calling `POST /api/cancel-line`.
+1. Both pages show the API's `message` for `paypal_error`, `release_failed`, `paypal_unreachable`, `payment_pending` and `still_processing`; Finish stays available and reads "Try Finish again" after a failure.
+2. `capture_uncertain: true` shows "Being confirmed" with "Do not ship yet" on the merchant console, and "PayPal is confirming whether this part was charged" to the shopper. The ledger keeps unconfirmed money apart from parts that won't be charged.
+3. R-M1 and R-M2 are kept: a blocked line with a check left can be rechecked, `cancel_reason` is shown on both pages, and "Can't fulfil this part" calls `POST /api/cancel-line`.
+4. "Start over" reads the reset reply: if PayPal could not confirm the release, the shopper is told the hold is released automatically within 24 h.

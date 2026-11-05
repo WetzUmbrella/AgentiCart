@@ -20,7 +20,8 @@ Rejected on screen, both real audit results (candidates are tried cheapest first
 Shipping beats for the video:
 - line-1 ships as `Scarlett 2i2 4th Gen` → charged.
 - line-5 ships as `MDR-7506` → charged.
-- line-2 ships as `SM58S` (the switch variant) → not charged.
+- line-2 ships as `SM58S` (the switch variant) → not charged, with one recheck offered; repack as `SM58-LC` → charged. Both label photos stay on the console as evidence.
+- line-4 (Compass arm) can ship on the "Compass arm" sample label (read correctly by live Gemini on 6 Nov), or show "Can't fulfil this part" (out of stock).
 - Finish order → the rest is released.
 
-Timing of one live `/api/bundle` call: **64 s** (2 Nov, production build on a laptop, `gemini-3.1-pro-preview`). Too long to show uncut on video: cut or speed up the wait, and show per-part progress in the UI.
+Timing of one live `/api/bundle` call: **64 s** (2 Nov) and **85 s** (6 Nov), production build on a laptop, `gemini-3.1-pro-preview`. Too long to show uncut on video: cut or speed up the wait. The shop page now streams progress (`/api/bundle?stream=1`) and shows each part being checked against the parts already picked, with a seconds counter.

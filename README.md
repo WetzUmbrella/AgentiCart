@@ -102,6 +102,7 @@ For the real flow, set in `.env.local` (names only here, never commit values):
 - `PAYPAL_MODE=sandbox`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`
 - `AI_MODE=live`, `GEMINI_API_KEY`, `GEMINI_MODEL_PRO`, `GEMINI_MODEL_FLASH`
 - Optional: `GEMINI_THINKING_LEVEL=LOW`, `MAX_AI_CALLS_PER_DAY`, `PAYPAL_MULTI_MERCHANT=1` with `MERCHANT_A/B/C_EMAIL`
+- UI work only: `AI_MOCK_DELAY_MS=1500` makes each mock audit wait, so the build progress can be seen offline
 
 Spec sheets: `npm run fetch-specs` downloads the PDFs that have a direct link and lists the official pages to screenshot into `data/specs/`.
 
@@ -111,10 +112,11 @@ Spec sheets: `npm run fetch-specs` downloads the PDFs that have a direct link an
 |---|---|
 | `npm test` | Unit tests for the money flow, shipped-model rules and bundle builder |
 | `npm run typecheck` | TypeScript check |
+| `npm run e2e` | The demo flow in a browser (Playwright, mock mode, port 3100). Run `npx playwright install chromium` once, or use an installed Chrome with `PW_CHANNEL=chrome` |
 | `npm run check-catalogue` | Validates the catalogue and lists missing spec files |
 | `npm run fetch-specs` | Downloads spec PDFs |
 | `npm run gonogo:capture` / `gonogo:multi` / `gonogo:tracking` | Go/no-go tests against the real sandbox (interactive) |
-| `npm run test-ship` | The five shipped-model cases |
+| `npm run test-ship` | The eight shipped-model cases on the sample label photos |
 | `npm run testset` | Accuracy run on `data/testset.json` (live AI only) |
 | `npm run check-quotes` | Checks that the demo's evidence quotes appear in the PDFs |
 | `npm run warm -- <url>` | Wakes the hosted demo and warms the verdict cache |

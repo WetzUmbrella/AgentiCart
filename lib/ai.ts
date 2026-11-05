@@ -190,6 +190,7 @@ export async function auditCompatibility(check: Product, accepted: Product[]): P
       evidence: [],
     };
   } else if (config.aiMode === "mock") {
+    if (config.mockDelayMs) await new Promise((r) => setTimeout(r, config.mockDelayMs));
     verdict = mockAudit(check, partners);
   } else {
     const prompt = `You are checking whether ONE audio product works with other products a shopper has already chosen.
@@ -248,6 +249,7 @@ export async function checkShippedModel(
     label_text: d.label_text,
     reason: mock ? `MOCK: ${d.reason}` : d.reason,
     action: d.capture ? "CAPTURE" : "DO_NOT_CAPTURE",
+    ...(d.unreadable ? { unreadable: true } : {}),
     ...(mock ? { mock: true } : {}),
   });
 
@@ -268,6 +270,7 @@ export async function checkShippedModel(
         matched_variant: null,
         label_text: null,
         reason: "Mock AI can't read photos. Pick one of the sample labels, or set AI_MODE=live.",
+        unreadable: true,
       }, true);
     }
     const names = containsVariant(sample.label_text, product.variant);

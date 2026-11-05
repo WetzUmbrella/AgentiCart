@@ -2,7 +2,7 @@ import { catalogue, productName, toPublic, type Category, type Product } from ".
 import { auditCompatibility, parseGoal } from "./ai";
 import { config } from "./config";
 import { toCents } from "./money";
-import type { AuditVerdict, BundleLine, BundleResponse, Constraints, SearchCandidate, SearchStep } from "./types";
+import type { AuditVerdict, BundleLine, BundleProgress, BundleResponse, Constraints, SearchCandidate, SearchStep } from "./types";
 
 /**
  * Builds a bundle for a goal. Products always come from the catalogue (the AI never invents them).
@@ -41,9 +41,11 @@ const candidate = (p: Product, outcome: SearchCandidate["outcome"], note: string
   note,
 });
 
-export async function buildBundle(goal: string): Promise<BundleResponse> {
+/** onProgress is told what the builder is doing, so the shopper is not left with a minute-long spinner. */
+export async function buildBundle(goal: string, onProgress: (e: BundleProgress) => void = () => {}): Promise<BundleResponse> {
   const constraints = await parseGoal(goal);
   const wanted = AUDIT_ORDER.filter((c) => constraints.categories_needed.includes(c));
+  onProgress({ type: "goal", constraints, categories: wanted });
   const accepted: Product[] = [];
   const lines: BundleLine[] = [];
   const rejected: BundleResponse["rejected"] = [];
@@ -65,6 +67,7 @@ export async function buildBundle(goal: string): Promise<BundleResponse> {
         step.candidates.push(candidate(p, "not_tried", `A cheaper part (${productName(picked)}) already fits.`));
         continue;
       }
+      onProgress({ type: "checking", category, product: productName(p), against: accepted.map(productName) });
       const verdict: AuditVerdict = await auditCompatibility(p, accepted);
       if (verdict.compatible) {
         picked = p;
@@ -81,6 +84,7 @@ export async function buildBundle(goal: string): Promise<BundleResponse> {
         step.candidates.push(candidate(p, "rejected", verdict.reason));
       }
     }
+    onProgress({ type: "step", step, picked: picked ? productName(picked) : null });
   }
 
   const total_cents = lines.reduce((s, l) => s + toCents(l.product.price_usd) * l.qty, 0);

@@ -43,6 +43,7 @@ describe("decideShipment (the charge rule)", () => {
     const d = decideShipment("SM58-LC", "SM58-LC", read({ legible: false }));
     expect(d.capture).toBe(false);
     expect(d.reason).toMatch(/could not be read/);
+    expect(d.unreadable).toBe(true);
     expect(decideShipment("SM58-LC", "SM58-LC", read({ label_text: "   " })).capture).toBe(false);
   });
 

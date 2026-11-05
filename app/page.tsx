@@ -1,20 +1,30 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import BuildProgress, { applyProgress, startProgress, type Progress } from "@/components/BuildProgress";
 import BundleGrid, { type GridRow } from "@/components/BundleGrid";
 import Ledger from "@/components/Ledger";
 import PayButton from "@/components/PayButton";
 import SearchReceipt from "@/components/SearchReceipt";
 import SwapPanel from "@/components/SwapPanel";
 import { useConfig } from "@/components/useConfig";
-import { api, ApiError, usd } from "@/lib/client";
+import { api, ApiError, apiStream, usd } from "@/lib/client";
 import type { PublicProduct } from "@/lib/catalogue";
-import { storeLabel } from "@/lib/labels";
+import { lineRowState, storeLabel } from "@/lib/labels";
 import { totalsFor } from "@/lib/totals";
-import type { AuditVerdict, BundleLine, BundleResponse, Order } from "@/lib/types";
+import type { AuditVerdict, BundleLine, BundleProgress, BundleResponse, Line, Order } from "@/lib/types";
 
 const DEMO_GOAL = "Podcast setup for 2 people under $900";
 const cents = (usdValue: number) => Math.round(usdValue * 100);
+
+/** What the shopper is told about a part after approval. Merchant wording ("do not ship") stays on the console. */
+function shopperNote(l: Line): string | undefined {
+  if (l.capture_uncertain) return "PayPal is confirming whether this part was charged. It is settled before anything is released.";
+  if (l.cancel_reason) return `The store can't supply this part (${l.cancel_reason}). It won't be charged.`;
+  if (l.state === "CAPTURED") return undefined;
+  if (l.state === "AUTHORISED" && l.verdict?.unreadable) return "The store's label photo was unreadable. They are retaking it.";
+  return l.error ?? l.verdict?.reason;
+}
 
 export default function ShopperPage() {
   const cfg = useConfig();
@@ -28,8 +38,12 @@ export default function ShopperPage() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
   const [swapRow, setSwapRow] = useState<GridRow | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [finishing, setFinishing] = useState(false);
+  const [finishFailed, setFinishFailed] = useState(false);
+  const loading = progress !== null;
   const [expired, setExpired] = useState(false);
 
   // Poll the order every 2 seconds until it is closed.
@@ -53,10 +67,13 @@ export default function ShopperPage() {
   }, [orderId, order?.status, expired]);
 
   const build = async () => {
-    setLoading(true);
+    setProgress(startProgress());
     setError(null);
+    setNotice(null);
     try {
-      const b = await api<BundleResponse>("/api/bundle", { body: { goal } });
+      const b = await apiStream<BundleResponse, BundleProgress>("/api/bundle?stream=1", { goal }, "bundle", (e) =>
+        setProgress((p) => (p ? applyProgress(p, e) : p)),
+      );
       setBundle(b);
       setLines(b.lines);
       setConfirmed(new Set());
@@ -64,18 +81,30 @@ export default function ShopperPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not build a bundle.");
     } finally {
-      setLoading(false);
+      setProgress(null);
     }
   };
 
   const startOver = async () => {
-    if (orderId) await api("/api/reset", { body: { orderId } }).catch(() => undefined);
+    setNotice(null);
+    if (orderId && order?.status !== "CLOSED") {
+      // Reset releases the hold first. If PayPal can't confirm that, the order is kept and auto-closed (R-S2).
+      const r = await api<{ cleared: boolean; deferred?: boolean }>("/api/reset", { body: { orderId } }).catch(() => null);
+      if (!r || r.deferred) {
+        setNotice(
+          "PayPal did not confirm that your held money was released. Nothing extra was charged, and the hold is released automatically within 24 hours.",
+        );
+      }
+    } else if (orderId) {
+      await api("/api/reset", { body: { orderId } }).catch(() => undefined);
+    }
     setBundle(null);
     setLines([]);
     setConfirmed(new Set());
     setSwapped(false);
     setOrderId(null);
     setOrder(null);
+    setFinishFailed(false);
     setExpired(false);
     setError(null);
   };
@@ -96,7 +125,7 @@ export default function ShopperPage() {
       const state = fits === false
         ? "REJECTED"
         : ol
-          ? ol.state
+          ? lineRowState(ol)
           : orderId
             ? "LEFT_OUT"
             : needsConfirm(l)
@@ -116,7 +145,7 @@ export default function ShopperPage() {
         evidence: rechecking === l.line_id ? [] : l.verdict?.evidence ?? [],
         trust: rechecking === l.line_id ? undefined : l.verdict?.trust,
         state,
-        payment_note: ol?.state === "CAPTURED" ? undefined : ol?.error ?? ol?.verdict?.reason,
+        payment_note: ol ? shopperNote(ol) : undefined,
         tracking: ol?.tracking_number,
         label_text: ol?.verdict ? ol.verdict.label_text ?? "" : undefined,
         photo_url: ol?.has_photo && orderId ? `/api/orders/${orderId}/photo/${l.line_id}` : undefined,
@@ -172,11 +201,18 @@ export default function ShopperPage() {
   const finish = async () => {
     if (!orderId) return;
     setError(null);
+    setFinishing(true);
     try {
       const r = await api<{ order: Order }>(`/api/orders/${orderId}/close`, { method: "POST" });
       setOrder(r.order);
+      setFinishFailed(false);
     } catch (e) {
+      // 409 still processing, 502 release failed, 503 PayPal unreachable: the order stays open and Finish can be retried.
       setError(e instanceof Error ? e.message : "Could not finish the order.");
+      setFinishFailed(true);
+      if (e instanceof ApiError && e.body.order) setOrder(e.body.order as Order);
+    } finally {
+      setFinishing(false);
     }
   };
 
@@ -233,7 +269,9 @@ export default function ShopperPage() {
           {bundle?.budget_warning && <p className="notice warn">{bundle.budget_warning}</p>}
         </div>
 
+        {progress && <BuildProgress progress={progress} />}
         {error && <p className="notice error" role="alert">{error}</p>}
+        {notice && <p className="notice info" role="status">{notice}</p>}
         {expired && (
           <p className="notice error" role="alert">
             This order expired (the demo server restarted or it was reset). Press Start over to try again.
@@ -292,7 +330,9 @@ export default function ShopperPage() {
                 <Link className="button secondary" href={`/merchant?order=${orderId}`} target="_blank">
                   Open merchant console
                 </Link>
-                <button onClick={finish}>Finish order</button>
+                <button onClick={finish} disabled={finishing}>
+                  {finishing ? "Finishing…" : finishFailed ? "Try Finish again" : "Finish order"}
+                </button>
               </>
             )}
             {closed && <p>You paid {usd(totals.charged)}. The rest of the hold was released.</p>}
