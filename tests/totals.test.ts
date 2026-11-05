@@ -18,9 +18,15 @@ const order = (status: Order["status"], states: Order["lines"][number]["state"][
 describe("ledger totals", () => {
   it("shows held money while open and released money only after close", () => {
     const open = totalsFor(order("AUTHORISED", ["CAPTURED", "NOT_CHARGED", "AUTHORISED"]));
-    expect(open).toEqual({ authorised: 3000, charged: 1000, held: 2000, notCharged: 1000, released: null });
+    expect(open).toEqual({ authorised: 3000, charged: 1000, held: 2000, notCharged: 1000, confirming: 0, released: null });
     const closed = totalsFor(order("CLOSED", ["CAPTURED", "NOT_CHARGED", "VOIDED"], 2000));
     expect(closed).toMatchObject({ charged: 1000, held: 0, released: 2000 });
+  });
+
+  it("keeps an unconfirmed charge apart from parts that won't be charged (R-P3)", () => {
+    const o = order("AUTHORISED", ["CAPTURE_FAILED", "NOT_CHARGED"]);
+    o.lines[0].capture_uncertain = true;
+    expect(totalsFor(o)).toMatchObject({ confirming: 1000, notCharged: 1000, held: 2000 });
   });
 });
 

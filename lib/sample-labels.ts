@@ -12,12 +12,13 @@ export type SampleLabel = {
 };
 
 export const SAMPLE_LABELS: SampleLabel[] = [
-  { id: "scarlett-2i2-4", label_text: "Focusrite Scarlett 2i2 4th Gen", declared: "Scarlett 2i2 4th Gen", caption: "Scarlett 2i2 4th Gen" },
-  { id: "sm58-lc", label_text: "Shure SM58-LC", declared: "SM58-LC", caption: "SM58-LC (verified variant)" },
-  { id: "sm58s", label_text: "Shure SM58S", declared: "SM58S", caption: "SM58S (switch variant)" },
-  { id: "hmic-010", label_text: "Hosa HMIC-010", declared: "HMIC-010", caption: "Hosa HMIC-010" },
-  { id: "psa1", label_text: "RODE PSA1", declared: "PSA1", caption: "RODE PSA1" },
-  { id: "mdr-7506", label_text: "Sony MDR-7506", declared: "MDR-7506", caption: "Sony MDR-7506" },
+  { id: "scarlett-2i2-4", label_text: "Focusrite Scarlett 2i2 4th Gen", declared: "Scarlett 2i2 4th Gen", caption: "Scarlett 2i2" },
+  { id: "sm58-lc", label_text: "Shure SM58-LC", declared: "SM58-LC", caption: "SM58-LC (verified)" },
+  { id: "sm58s", label_text: "Shure SM58S", declared: "SM58S", caption: "SM58S (switch)" },
+  { id: "hmic-010", label_text: "Hosa HMIC-010", declared: "HMIC-010", caption: "HMIC-010" },
+  { id: "psa1", label_text: "RODE PSA1", declared: "PSA1", caption: "PSA1" },
+  { id: "compass", label_text: "Logitech G Compass Broadcast Boom Arm", declared: "Compass Broadcast Boom Arm", caption: "Compass arm" },
+  { id: "mdr-7506", label_text: "Sony MDR-7506", declared: "MDR-7506", caption: "MDR-7506" },
   { id: "unreadable", label_text: "", declared: "SM58-LC", caption: "Blurry label" },
 ];
 

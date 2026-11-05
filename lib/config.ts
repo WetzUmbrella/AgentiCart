@@ -16,6 +16,11 @@ export const config = {
   get paypalBase(): string {
     return process.env.PAYPAL_API_BASE || "https://api-m.sandbox.paypal.com";
   },
+  /** Mock mode only: pause each mock audit this long, to see the build progress offline. Default 0. */
+  get mockDelayMs(): number {
+    const n = Number(process.env.AI_MOCK_DELAY_MS);
+    return Number.isFinite(n) && n > 0 ? Math.min(n, 10_000) : 0;
+  },
   get maxAiCallsPerDay(): number {
     const n = Number(process.env.MAX_AI_CALLS_PER_DAY);
     return Number.isFinite(n) && n > 0 ? n : 300;

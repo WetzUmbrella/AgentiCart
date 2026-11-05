@@ -152,6 +152,47 @@ describe("ship", () => {
     expect((await ship(id, "line-2", "SM58-LC", deps)).line.state).toBe("CAPTURED");
   });
 
+  it("an unreadable label does not use up the repack (D3)", async () => {
+    const unreadable: Deps["checkShipped"] = async () => ({
+      line_id: "x", match: false, matched_variant: null, label_text: null,
+      reason: "The model on the label photo could not be read.", action: "DO_NOT_CAPTURE", unreadable: true,
+    });
+    const id = await authorised(makeDeps());
+    const blurry = await ship(id, "line-2", "SM58-LC", makeDeps({ checkShipped: unreadable }));
+    expect(blurry).toMatchObject({ captured: false, checks_left: 2, line: { state: "AUTHORISED", checks: 0 } });
+    const deps = makeDeps();
+    expect((await ship(id, "line-2", "SM58S", deps)).checks_left).toBe(1); // wrong part: counted
+    await ship(id, "line-2", "SM58S", makeDeps({ checkShipped: unreadable })); // blurry repack photo: not counted
+    expect(orders.get(id)!.lines[1]).toMatchObject({ state: "NOT_CHARGED", checks: 1 });
+    expect((await ship(id, "line-2", "SM58-LC", deps)).line.state).toBe("CAPTURED");
+  });
+
+  it("keeps the photo and verdict of every check, so a repack keeps the wrong-variant evidence (D5)", async () => {
+    const deps = makeDeps();
+    const id = await authorised(deps);
+    const second = { ...PHOTO, data: PHOTO.data.replace("ggg==", "ggg=") };
+    await ship(id, "line-2", "SM58S", deps);
+    await shipLine({ orderId: id, line_id: "line-2", shipped_model: "SM58-LC", tracking_number: "DEMO2", photo: second }, deps);
+    const line = orders.get(id)!.lines[1];
+    expect(line.photo_count).toBe(2);
+    expect(line.attempts?.map((a) => [a.photo, a.shipped_model, a.verdict.action])).toEqual([
+      [1, "SM58S", "DO_NOT_CAPTURE"],
+      [2, "SM58-LC", "CAPTURE"],
+    ]);
+    expect(getPhoto(id, "line-2", 1)).toEqual(PHOTO);
+    expect(getPhoto(id, "line-2", 2)).toEqual(second);
+  });
+
+  it("an AI failure on a repack keeps the first photo", async () => {
+    const deps = makeDeps();
+    const id = await authorised(deps);
+    await ship(id, "line-2", "SM58S", deps);
+    await expect(ship(id, "line-2", "SM58-LC", makeDeps({ checkShipped: () => Promise.reject(new Error("x")) }))).rejects.toThrow();
+    expect(orders.get(id)!.lines[1]).toMatchObject({ photo_count: 1, has_photo: true });
+    expect(getPhoto(id, "line-2", 1)).toEqual(PHOTO);
+    expect(getPhoto(id, "line-2", 2)).toBeUndefined();
+  });
+
   it("blocks a concurrent second click while the first check is running", async () => {
     let release!: () => void;
     const slow: Deps["checkShipped"] = (l, s) => new Promise((res) => (release = () => res(exactStub(l, s))));
@@ -169,7 +210,7 @@ describe("ship", () => {
     await expect(ship(id, "line-2", "SM58-LC", deps)).rejects.toMatchObject({ status: 502 });
     expect(orders.get(id)!.lines[1].state).toBe("AUTHORISED");
     expect(orders.get(id)!.lines[1].has_photo).toBe(false);
-    expect(getPhoto(id, "line-2")).toBeUndefined();
+    expect(getPhoto(id, "line-2", 1)).toBeUndefined();
   });
 
   it("needs a real label photo before claiming the line", async () => {
@@ -189,9 +230,9 @@ describe("ship", () => {
     await shipLine({ orderId: id, line_id: "line-2", shipped_model: "SM58S", tracking_number: "DEMO1", photo: PHOTO, sample_label: "sm58s" }, deps);
     expect(check).toHaveBeenCalledWith(expect.objectContaining({ line_id: "line-2" }), "SM58S", PHOTO, "sm58s");
     expect(orders.get(id)!.lines[1]).toMatchObject({ state: "NOT_CHARGED", has_photo: true });
-    expect(getPhoto(id, "line-2")).toEqual(PHOTO);
+    expect(getPhoto(id, "line-2", 1)).toEqual(PHOTO);
     resetOrder(id);
-    expect(getPhoto(id, "line-2")).toBeUndefined();
+    expect(getPhoto(id, "line-2", 1)).toBeUndefined();
   });
 
   it("marks CAPTURE_FAILED when PayPal does not complete the capture", async () => {

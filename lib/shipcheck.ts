@@ -38,7 +38,14 @@ export type LabelReading = {
   reason: string;
 };
 
-export type ShipDecision = { capture: boolean; matched_variant: string | null; label_text: string | null; reason: string };
+/** unreadable: the photo showed no legible label, so it says nothing about what was packed (team decision D3). */
+export type ShipDecision = {
+  capture: boolean;
+  matched_variant: string | null;
+  label_text: string | null;
+  reason: string;
+  unreadable?: boolean;
+};
 
 /** Label text is shown in the UI: keep it to one short line of printable characters. */
 const cleanLabel = (s: string) => s.replace(/[^\x20-\x7E]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
@@ -55,7 +62,9 @@ export function decideShipment(declared: string, variant: string, r: LabelReadin
   const label = cleanLabel(r.label_text);
   const matched = r.matched_variant ? cleanLabel(r.matched_variant) : null;
   const no = (reason: string): ShipDecision => ({ capture: false, matched_variant: matched, label_text: label || null, reason });
-  if (!r.legible || !label) return no("The model on the label photo could not be read. Not charged; retake the photo.");
+  if (!r.legible || !label) {
+    return { ...no("The model on the label photo could not be read. Not charged; retake the photo."), unreadable: true };
+  }
   if (!containsVariant(label, variant)) return no(`The label in the photo reads "${label}", not the verified part ${variant}.`);
   if (!containsVariant(declared, variant)) return no(`The declared model "${declared.trim()}" is not the verified part ${variant}.`);
   if (!r.match || !matched || !exactVariantMatch(matched, variant)) {

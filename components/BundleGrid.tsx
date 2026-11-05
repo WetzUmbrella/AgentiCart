@@ -46,8 +46,8 @@ const rowClassRules: RowClassRules<GridRow> = {
   "row-rejected": (p) => p.data?.state === "REJECTED",
   "row-confirm": (p) => p.data?.state === "NEEDS_CONFIRM",
   "row-captured": (p) => p.data?.state === "CAPTURED",
-  "row-failed": (p) => p.data?.state === "CAPTURE_FAILED",
-  "row-grey": (p) => p.data?.state === "NOT_CHARGED" || p.data?.state === "VOIDED" || p.data?.state === "LEFT_OUT",
+  "row-failed": (p) => p.data?.state === "CAPTURE_FAILED" || p.data?.state === "UNCONFIRMED",
+  "row-grey": (p) => ["NOT_CHARGED", "VOIDED", "LEFT_OUT", "CANCELLED"].includes(p.data?.state ?? ""),
 };
 
 const cellText = { lineHeight: "1.4", paddingTop: "10px", paddingBottom: "14px", wordBreak: "normal" as const };
@@ -184,7 +184,7 @@ export default function BundleGrid({
 }) {
   const columnDefs = useMemo<ColDef<GridRow>[]>(
     () => [
-      { field: "name", headerName: "Part", width: 168, wrapText: true, autoHeight: true, cellRenderer: PartCell, cellStyle: cellText },
+      { field: "name", headerName: "Part", width: 204, wrapText: true, autoHeight: true, cellRenderer: PartCell, cellStyle: cellText },
       {
         field: "qty",
         headerName: "Qty",
@@ -199,10 +199,11 @@ export default function BundleGrid({
         cellStyle: { fontVariantNumeric: "tabular-nums" },
       },
       { field: "reason", headerName: "Compatibility check", flex: 1, minWidth: 220, wrapText: true, autoHeight: true, cellRenderer: CheckCell, cellStyle: cellText },
-      { field: "state", headerName: "Payment", width: 168, wrapText: true, autoHeight: true, cellRenderer: StateCell, cellStyle: cellText },
-      { headerName: "", colId: "actions", width: 96, cellRenderer: ActionCell, cellStyle: cellText },
+      { field: "state", headerName: "Payment", width: 200, wrapText: true, autoHeight: true, cellRenderer: StateCell, cellStyle: cellText },
+      // Swap and Keep it only exist before approval; afterwards the column would be empty space.
+      { headerName: "", colId: "actions", width: 96, resizable: false, hide: !canSwap, cellRenderer: ActionCell, cellStyle: cellText },
     ],
-    [],
+    [canSwap],
   );
 
   const bundleRows = rows.filter((r) => !["REJECTED", "NEEDS_CONFIRM", "LEFT_OUT"].includes(r.state));
