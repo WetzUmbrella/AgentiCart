@@ -292,7 +292,7 @@ export default function ShopperPage() {
         )}
       </section>
 
-      <div className="stack">
+      <div className={`stack side${authorised ? " sticky" : ""}`}>
         <Ledger totals={totals} planned={plannedCents} closed={closed} />
         {bundle && !orderId && cfg && (
           <div className="panel stack">

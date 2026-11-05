@@ -80,7 +80,11 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .notice.info { background: #eaf0fd; border-color: #b9c8f3; color: #1f3a8f; }
 
 /* ledger: the one bold element */
-.ledger { position: sticky; top: 16px; display: grid; gap: 18px; }
+.ledger { display: grid; gap: 18px; }
+/* The money column follows the scroll only once it is short (after approval), so it never covers the PayPal buttons. */
+@media (min-width: 961px) { .side.sticky { position: sticky; top: 16px; } }
+.price-cell { display: grid; gap: 2px; }
+.price-cell strong { font-weight: 600; }
 .ledger h2 { font-stretch: 90%; }
 .meter { height: 18px; border-radius: 999px; background: #dfe5ea; overflow: hidden; display: flex; }
 .meter span { display: block; height: 100%; transition: width 400ms ease; }

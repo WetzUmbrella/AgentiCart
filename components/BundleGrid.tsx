@@ -129,6 +129,18 @@ function CheckCell(p: CustomCellRendererProps<GridRow>) {
   );
 }
 
+/** Line total, with "2 × $109.00" under it, so quantity needs no column of its own. */
+function PriceCell(p: CustomCellRendererProps<GridRow>) {
+  if (!p.data || p.data.state === "REJECTED") return null;
+  const { qty, amount_cents, pinned } = p.data;
+  return (
+    <span className="price-cell">
+      <strong>{usd(amount_cents)}</strong>
+      {!pinned && qty > 1 && <span className="quote" style={{ fontStyle: "normal" }}>{qty} × {usd(amount_cents / qty)}</span>}
+    </span>
+  );
+}
+
 function StateCell(p: CustomCellRendererProps<GridRow>) {
   if (!p.data || p.data.pinned) return null;
   return (
@@ -184,24 +196,20 @@ export default function BundleGrid({
 }) {
   const columnDefs = useMemo<ColDef<GridRow>[]>(
     () => [
-      { field: "name", headerName: "Part", width: 204, wrapText: true, autoHeight: true, cellRenderer: PartCell, cellStyle: cellText },
-      {
-        field: "qty",
-        headerName: "Qty",
-        width: 64,
-        valueFormatter: (p) => (p.data?.state === "REJECTED" ? "" : String(p.value)),
-      },
+      // Widths add up to the 842 px the grid gets beside the ledger at 1280 px, so nothing scrolls sideways.
+      { field: "name", headerName: "Part", width: 188, wrapText: true, autoHeight: true, cellRenderer: PartCell, cellStyle: cellText },
       {
         field: "amount_cents",
         headerName: "Price",
-        width: 104,
-        valueFormatter: (p) => (p.data?.state === "REJECTED" || p.value == null ? "" : usd(p.value)),
-        cellStyle: { fontVariantNumeric: "tabular-nums" },
+        width: 112,
+        autoHeight: true,
+        cellRenderer: PriceCell,
+        cellStyle: { ...cellText, fontVariantNumeric: "tabular-nums" },
       },
-      { field: "reason", headerName: "Compatibility check", flex: 1, minWidth: 220, wrapText: true, autoHeight: true, cellRenderer: CheckCell, cellStyle: cellText },
-      { field: "state", headerName: "Payment", width: 200, wrapText: true, autoHeight: true, cellRenderer: StateCell, cellStyle: cellText },
+      { field: "reason", headerName: "Compatibility check", flex: 1, minWidth: 250, wrapText: true, autoHeight: true, cellRenderer: CheckCell, cellStyle: cellText },
+      { field: "state", headerName: "Payment", width: 172, wrapText: true, autoHeight: true, cellRenderer: StateCell, cellStyle: cellText },
       // Swap and Keep it only exist before approval; afterwards the column would be empty space.
-      { headerName: "", colId: "actions", width: 96, resizable: false, hide: !canSwap, cellRenderer: ActionCell, cellStyle: cellText },
+      { headerName: "", colId: "actions", width: 92, resizable: false, hide: !canSwap, cellRenderer: ActionCell, cellStyle: cellText },
     ],
     [canSwap],
   );
