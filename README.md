@@ -1,6 +1,6 @@
 # AgentCart
 
-**Approve once. Pay only for parts confirmed to fit.**
+**Approve once. Pay only for parts that fit, when they ship.**
 
 AgentCart builds a compatible gear bundle (for example a two-person podcast setup) by reading the manufacturers' spec sheets with AI. You approve the whole bundle once with PayPal, and the money is **authorised, not charged**. Each part is **charged only when the AI confirms that the model being shipped is the exact part it verified**. A part that doesn't match is never charged, and the rest of the hold is released when the order is finished.
 
@@ -88,8 +88,8 @@ Not built and not claimed: live retailer stock, multi-retailer search, real merc
 Requires Node.js 20 or newer.
 
 ```bash
-git clone https://github.com/<team>/agentcart.git
-cd agentcart
+git clone https://github.com/WetzUmbrella/AgentiCart.git
+cd AgentiCart
 npm install
 cp .env.example .env.local
 npm run dev
@@ -99,9 +99,9 @@ Open http://localhost:3000. With the defaults (`PAYPAL_MODE=mock`, `AI_MODE=mock
 
 For the real flow, set in `.env.local` (names only here, never commit values):
 
-- `PAYPAL_MODE=sandbox`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`
+- `PAYPAL_MODE=sandbox` (exactly; any other value runs the mock), `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`
 - `AI_MODE=live`, `GEMINI_API_KEY`, `GEMINI_MODEL_PRO`, `GEMINI_MODEL_FLASH`
-- Optional: `GEMINI_THINKING_LEVEL=LOW`, `MAX_AI_CALLS_PER_DAY`, `PAYPAL_MULTI_MERCHANT=1` with `MERCHANT_A/B/C_EMAIL`
+- Optional: `PAYPAL_WEBHOOK_ID` (webhooks are only logged; they never change an order or move money), `GEMINI_THINKING_LEVEL=LOW`, `MAX_AI_CALLS_PER_DAY`, `PAYPAL_MULTI_MERCHANT=1` with `MERCHANT_A/B/C_EMAIL`
 
 Spec sheets: `npm run fetch-specs` downloads the PDFs that have a direct link and lists the official pages to screenshot into `data/specs/`.
 
@@ -121,7 +121,7 @@ Spec sheets: `npm run fetch-specs` downloads the PDFs that have a direct link an
 
 ## Deploy on Render
 
-New → Web Service → this repo. Build `npm install && npm run build`, start `npm start`. Add the environment variables above, then register the webhook (`docs/sandbox-runbook.md`). The free tier sleeps after 15 minutes and can restart at any time; orders live in memory, so a restart clears them and the UI says so.
+New → Web Service → this repo. Build `npm install && npm run build`, start `npm start`. Add the environment variables above. Registering the webhook (`docs/sandbox-runbook.md`) is optional. The free tier sleeps after 15 minutes and can restart at any time; orders live in memory, so a restart clears them and the UI says so.
 
 ## Production notes
 
