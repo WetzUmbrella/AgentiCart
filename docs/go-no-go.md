@@ -26,3 +26,13 @@ Each script prints a ready-made row for this table. Run them with `PAYPAL_MODE=s
 | Live prices: look up a hand-picked product ID | `scripts/channel3-lookup.mjs` | **PASS** | 115/115 lookups worked, 23/23 the same on repeat, about 0.44 s each, free. Variants have their own IDs (SM58 "Standard" `a8ibawf`, "with On/Off Switch" `997Bp2Z`). 22 of 23 products mapped by hand. |
 
 - Decision: **no live sourcing** (next-steps slide). **Live prices on the curated catalogue**, agreed 4 Nov. Rules and roles in `docs/channel3.md`.
+
+### Channel3 live-price test (Mon 9 Nov, Des)
+Run on branch `feat/channel3` by calling `livePrice()` for all 23 catalogue products with `LIVE_PRICES=1`. The screens don't use live prices yet (price cell and orders still to be wired by C and A), so A to C test `lib/channel3.ts` directly.
+
+- A. Live price, retailer and time for every mapped product: **FAIL**. 19 of 22 mapped products returned `live` with a retailer and ISO time; `stand-psa1` correctly `fixed`. `mic-sm58lc`, `mic-sm58s` and `cable-mogami-trs10` fell back with `listing.variants?.find is not a function` (multi-variant listings; `variants` is not an array).
+- B. Wrong key, every product falls back to its fixed price, no crash: **PASS**. All 23 `fixed`.
+- C. LIVE_PRICES=0, demo total $871.19 three runs in a row: **not run yet** (needs the real AI; do on Render).
+- D. Screen total equals the PayPal sandbox popup: **not run yet** (needs A's orders change and Render).
+- E. 3 retailer spot-checks: **FAIL**. `if-2i2-4` Macy's $224 matches. `mic-sm7b` shows $439 but Macy's charges $369 ($439 is the crossed-out list price). `hp-m50x` shows $179 but Macy's charges $159 (Black). Both wrong listings are sold by a marketplace seller (Electronics Expo), new and in stock.
+- Verdict: **LIVE_PRICES stays 0** until B fixes the `variants` bug and the price field (current price, not list price). Re-run A and E after the fix.
