@@ -33,7 +33,17 @@ Confirmed by A, B and C by message, 5 to 9 Nov (no call).
 | Live prices: look up a hand-picked product ID | `scripts/channel3-lookup.mjs` | **PASS** | 115/115 lookups worked, 23/23 the same on repeat, about 0.44 s each, free. Variants have their own IDs (SM58 "Standard" `a8ibawf`, "with On/Off Switch" `997Bp2Z`). 22 of 23 products mapped by hand. |
 
 - Decision: **no live sourcing** (next-steps slide). **Live prices on the curated catalogue**, agreed 4 Nov. Rules and roles in `docs/channel3.md`.
-- Builder: **Ahsanul**. `lib/channel3.ts` is in PR `feat/channel3`, 143/143 tests passing. `livePrice(product)` returns `{ price_usd, source: "live" | "fixed", retailer?, checked_at }`; `checked_at` is an ISO time for live prices and `price_date` for fixed ones.
+- Builder: **Ahsanul**. `lib/channel3.ts` merged into main (PR #4, 6 Nov), 143/143 tests passing. `livePrice(product)` returns `{ price_usd, source: "live" | "fixed", retailer?, checked_at }`; `checked_at` is an ISO time for live prices and `price_date` for fixed ones.
 - Product choice stays on the **fixed price**: `bundle.ts` keeps sorting on `price_usd`, and the live price is used only for what's shown and charged, so live prices can never change which products are picked.
-- `LIVE_PRICES` defaults to **0**, so nothing changes until it's switched on. Whether it goes on for the judges depends on Des's live-price tests (below).
+- `LIVE_PRICES` defaults to **0**, so nothing changes until it's switched on. As of 9 Nov nothing in the app calls `livePrice()` yet: the price cell (C) and orders (A) still use `price_usd`.
 - Open: whether the charge uses the price saved at checkout (asked of Yi Heng), and whether "Channel3" can be named on screen (organisers' reply pending).
+
+### Channel3 live-price test (Mon 9 Nov, Des)
+Run on main's `lib/channel3.ts` by calling `livePrice()` for all 23 catalogue products with `LIVE_PRICES=1`, because the screens don't use live prices yet.
+
+- A. Live price, retailer and time for every mapped product: **FAIL**. 19 of 22 mapped products returned `live` with a retailer and ISO time; `stand-psa1` correctly `fixed`. `mic-sm58lc`, `mic-sm58s` and `cable-mogami-trs10` fell back with `listing.variants?.find is not a function`. Cause: Channel3 returns `variants` as an object (`{ options, selected }`), not an array. Fix with tests sent to Ahsanul (`offersFor` checks `Array.isArray`); 145/145 tests pass with it.
+- B. Wrong key, every product falls back to its fixed price, no crash: **PASS**. All 23 `fixed`.
+- C. LIVE_PRICES=0, demo total $871.19 three runs in a row: **not run yet** (needs the real AI on Render).
+- D. Screen total equals the PayPal sandbox popup: **not run yet** (needs live prices wired into orders and the price cell).
+- E. 3 retailer spot-checks: **FAIL**. `if-2i2-4` Macy's $224 matches. `mic-sm7b`: we got $439, Macy's charges $369 ($439 is the crossed-out price). `hp-m50x`: we got $179, Macy's charges $159 (Black). Both are marketplace listings (sold by Electronics Expo), new and in stock. The code reads Channel3's current price (`price.price`, not `compare_at_price`), so Channel3's own data for these listings is out of date; no code fix on our side.
+- Verdict: **LIVE_PRICES stays 0** until the variants fix is merged, live prices are wired into the screen and orders, and A and E are re-run. If it goes on, every live price must show its retailer and checked time, and nothing public may call it real-time.
