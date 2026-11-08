@@ -28,7 +28,7 @@ PayPal AI Hackathon · Written 18 Oct 2026 · Feature freeze **Sat 7 Nov** · Su
 
 **AgentCart** builds a compatible gear bundle (for example, a podcast setup) by reading manufacturers' spec sheets. The shopper approves the whole bundle **once** with PayPal. PayPal **holds** the money (authorisation) but **doesn't charge** it. Each part is **charged only when our AI confirms the part the merchant is shipping is the exact part it verified**. Parts that don't match are **never charged**. When everything is resolved, the leftover hold is **released** (void).
 
-**Pitch line:** *"Approve once. Pay only for parts confirmed to fit."*
+**Pitch line:** *"Approve once. Pay only for parts that fit, when they ship."*
 
 ### The flow in 8 steps
 
@@ -82,7 +82,7 @@ PayPal AI Hackathon · Written 18 Oct 2026 · Feature freeze **Sat 7 Nov** · Su
 | **A** | **Payments lead** | Everything PayPal: orders, authorise, capture, void, tracking, webhooks, deploy on Render | ______ |
 | **B** | **AI lead** | Gemini prompts, JSON schemas, compatibility audit, shipped-model check, 20-case test script | ______ |
 | **C** | **Front-end lead** | Next.js pages, AG Grid bundle view, PayPal button, merchant console, design | ______ |
-| **D** | **Data, story and QA** | Catalogue and spec sheets, cached forum threads, test-set answers, README, video, Devpost, testing every flow | Des |
+| **D** | **Data, story and QA** | Catalogue and spec sheets, test-set answers, README, video, Devpost, testing every flow | Des |
 
 **Pairs that must agree early:**
 
@@ -145,7 +145,7 @@ An array of about 25 real products.
 - `spec_file` is a real PDF or PNG saved in `data/specs/`.
 - `key_specs` is filled by D **by hand from the spec sheet**. It's ground truth for testing; the AI never sees it.
 
-### 5.2 Cached forum threads: `data/threads.json` (owner: D)
+### 5.2 Cached forum threads: `data/threads.json` (owner: D) (cut)
 
 ```json
 [
@@ -741,7 +741,7 @@ export default function PayButton({ lines, onAuthorised }: { lines: any[]; onAut
 
 **Done when:** 20 cases are committed and a second teammate has spot-checked 5 of them.
 
-#### D4. Cached forum threads (Thu 29 Oct to Sun 1 Nov)
+#### D4. Cached forum threads (Thu 29 Oct to Sun 1 Nov) (cut)
 
 For the demo bundle's products only, copy 1 to 3 relevant comments each from real threads into `threads.json`, with the URL and date. These show as "Reported issues" in the UI. They're information only and never move money.
 
@@ -778,7 +778,7 @@ Create `README.md` with these sections, in this order:
 4. Record the screen following section 9 **exactly**. Record the voice-over separately if that's easier.
 5. Edit in any free editor (CapCut, DaVinci Resolve, Clipchamp). Target **2:45**; the hard limit is under **3:00**.
 6. **No copyrighted music.** Use silence or the YouTube Audio Library.
-7. Upload to YouTube as **Public**. Title: "AgentCart: approve once, pay only for parts confirmed to fit (PayPal AI Hackathon)".
+7. Upload to YouTube as **Public**. Title: "AgentCart: approve once, pay only for parts that fit, when they ship (PayPal AI Hackathon)".
 8. Watch it once on a phone with the sound off. Can you still follow the story? If not, add captions.
 
 #### D8. Devpost submission (Wed 11 Nov)
@@ -847,16 +847,16 @@ Rehearse it every Sunday from 25 Oct. D times it.
 
 | Time | On screen | Voice-over (say roughly this) |
 |---|---|---|
-| 0:00 | Photo or text of the real story (D1) | "[Name] bought a condenser mic for an interface with no phantom power. It recorded silence. The return took two weeks." |
-| 0:20 | Shopper types "Podcast setup for 2 people under $800" | "AgentCart reads every manufacturer's spec sheet before anything goes in your cart." |
-| 0:35 | Grid fills; one condenser mic shows **red** with the quote "Requires 48V phantom power" | "It rejected this mic, and it shows you the exact line on the spec sheet that rules it out." |
+| 0:00 | Story card (slide 1) | "Imagine building your dream podcast setup. The mic arrives, but your interface can't power it. Hundreds spent, and it still doesn't work." |
+| 0:20 | Shopper types "Podcast setup for 2 people under $900" (cut the ~60 s wait) | "AgentCart reads every manufacturer's spec sheet before anything goes in your cart." |
+| 0:35 | Grid fills; the Logitech G Yeti Orb shows **red** with its spec-sheet quote (USB-C only; the 2i2's mic inputs are XLR), and the RODE PSA1 arm shows **red** (3/8 inch thread; the SM58 is 5/8 inch) | "It rejected this mic and this arm, and it shows you the line on the spec sheet that rules each one out." |
 | 0:55 | Shopper swaps one part; that row re-checks | "Change anything and only that row is re-checked." |
 | 1:05 | PayPal popup → approve → total shows **Authorised $X, Charged $0** | "You approve once with PayPal. Nothing is charged yet." |
-| 1:20 | Merchant console: two parts shipped with matching models → grid turns **green**, "Charged $Y", tracking shown | "When a merchant ships, AgentCart checks the exact model against the one it verified. It matches, so PayPal charges for that part." |
+| 1:20 | Merchant console: Scarlett 2i2 4th Gen and MDR-7506 shipped with their box-label photos → grid turns **green**, "Charged $Y", tracking shown | "When a merchant ships, AgentCart reads the box label and checks the exact model against the one it verified. It matches, so PayPal charges for that part." |
 | 1:45 | Third merchant enters a different variant → panel: **"Not charged: shipped SM58S, verified SM58-LC"** | "This merchant shipped a different variant. That part is never charged." |
-| 2:00 | **Finish order** → "Released $Z" | "The rest of the hold is released. You paid only for parts confirmed to fit." |
+| 2:00 | **Finish order** → "Released $Z" | "The rest of the hold is released. You paid only for parts that fit, when they shipped." |
 | 2:15 | Accuracy slide: **[X]/20** on real pairings; architecture slide: "The agent can't move money" | "We measured it on 20 real spec-sheet pairings. And the AI can't charge anyone: only our server can, after a verified match." |
-| 2:35 | Logo + "Approve once. Pay only for parts confirmed to fit." + links | "AgentCart." |
+| 2:35 | Logo + "Approve once. Pay only for parts that fit, when they ship." + links | "AgentCart." |
 
 ---
 
@@ -868,7 +868,6 @@ Rehearse it every Sunday from 25 Oct. D times it.
 | Compatibility audit | **Real** AI over real manufacturer spec sheets |
 | Shipped-model check | **Real** AI plus exact-match code |
 | Product catalogue | **Curated**: real products, prices as of [date] |
-| Forum comments | **Cached**: real threads, each linked to its original |
 | Merchants | Sandbox accounts operated by the team through the merchant console |
 
 **Not built and not claimed:** live retailer stock, multi-retailer search APIs, real merchant fulfilment.
