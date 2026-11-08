@@ -145,7 +145,7 @@ An array of about 25 real products.
 - `spec_file` is a real PDF or PNG saved in `data/specs/`.
 - `key_specs` is filled by D **by hand from the spec sheet**. It's ground truth for testing; the AI never sees it.
 
-### 5.2 Cached forum threads: `data/threads.json` (owner: D)
+### 5.2 Cached forum threads: `data/threads.json` (owner: D) (cut)
 
 ```json
 [
@@ -868,7 +868,6 @@ Rehearse it every Sunday from 25 Oct. D times it.
 | Compatibility audit | **Real** AI over real manufacturer spec sheets |
 | Shipped-model check | **Real** AI plus exact-match code |
 | Product catalogue | **Curated**: real products, prices as of [date] |
-| Forum comments | **Cached**: real threads, each linked to its original |
 | Merchants | Sandbox accounts operated by the team through the merchant console |
 
 **Not built and not claimed:** live retailer stock, multi-retailer search APIs, real merchant fulfilment.
