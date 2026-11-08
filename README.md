@@ -85,6 +85,18 @@ Not built and not claimed: live retailer stock, multi-retailer search, real merc
 
 `[X]/20` on hand-checked pairings of real spec sheets. Results: `results/testset-YYYY-MM-DD.txt`. The 20 cases were written before the AI was run on them and are separate from the 5 development cases in `data/seed.json`.
 
+## AG Grid features used
+
+The bundle table (`components/BundleGrid.tsx`, AG Grid Community 36) uses:
+
+- **Custom cell renderers** for the part and its shop, the compatibility verdict with its spec-sheet quotes and confidence chip, the payment state, and the **Swap** and **Keep it** buttons.
+- **Row class rules** that colour each row by its state: rejected, needs confirmation, charged, capture failed, not charged or released.
+- A **pinned bottom row** with the bundle total.
+- **Wrapped text with automatic row height**, so long verdicts stay readable, and an auto-height grid layout.
+- **Value formatters** for quantities and USD prices (blank on rejected rows).
+- **Row IDs** (`getRowId`), so swaps and payment updates, polled every 2 seconds, update rows in place.
+- A **custom theme** built from `themeQuartz` to match the app's colours.
+
 ## Run it locally
 
 Requires Node.js 20 or newer.
