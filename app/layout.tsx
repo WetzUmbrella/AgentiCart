@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AgentCart",
-  description: "Approve once. Pay only for parts confirmed to fit.",
+  description: "Approve once. Pay only for parts that fit, when they ship.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

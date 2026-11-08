@@ -6,7 +6,8 @@ export const metadata = { title: "What's real in AgentCart" };
 const SOURCE = "https://github.com/WetzUmbrella/AgentiCart/blob/main";
 
 const ROWS: [string, string][] = [
-  ["PayPal authorise, capture, void, tracking, webhooks", "Real, in the PayPal sandbox (PAYPAL_MODE=sandbox)."],
+  ["PayPal authorise, capture, void, tracking", "Real, in the PayPal sandbox (PAYPAL_MODE=sandbox)."],
+  ["PayPal webhooks", "Signature check built. Webhooks are only logged and never change an order, so the hosted demo doesn't register one."],
   ["Compatibility audit", "Real AI (Gemini) reading the manufacturers' spec sheets. Every verdict quotes the sheet."],
   [
     "Shipment label check",
@@ -15,7 +16,7 @@ const ROWS: [string, string][] = [
   ["Product catalogue", "Curated: real products, prices checked on the date shown for each product."],
   ["Bundle order", "Cheapest compatible part per category, checked in a fixed order, so results are repeatable."],
   ["Confidence", "Worked out by our server from checks you can repeat, not the AI rating its own answer."],
-  ["Merchants", "Sandbox accounts operated by the team through the merchant console."],
+  ["Merchants", "One sandbox business account receives every payment (single seller). The three shops are labels, and the team ships through the merchant console."],
 ];
 
 export default function About() {

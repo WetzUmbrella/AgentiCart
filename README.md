@@ -71,11 +71,12 @@ The PayPal Agent Toolkit is **not** used: its `create_order` tool creates captur
 
 | Component | Status |
 |---|---|
-| PayPal authorise, capture, void, tracking, webhooks | Real, PayPal sandbox |
+| PayPal authorise, capture, void, tracking | Real, PayPal sandbox |
+| PayPal webhooks | Signature check built; webhooks are only logged and never change an order, so the hosted demo doesn't register one |
 | Compatibility audit | Real AI over real manufacturer spec sheets |
 | Shipment label check | Real AI (Gemini Flash) reading the label photo, plus deterministic code checks. The demo uses sample label images made by the team (`public/demo-labels/`) |
 | Product catalogue | Curated: real products, prices checked on the date shown for each |
-| Merchants | Sandbox accounts operated by the team through the merchant console |
+| Merchants | One sandbox business account receives every payment (single seller). The three shops are labels, and the team ships through the merchant console. |
 
 Not built and not claimed: live retailer stock, multi-retailer search, real merchant fulfilment.
 

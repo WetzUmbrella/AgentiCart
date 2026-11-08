@@ -14,7 +14,7 @@ export default function Header() {
   return (
     <header className="top">
       <Link href="/" className="brand">
-        AgentCart<small>Approve once. Pay only for parts confirmed to fit.</small>
+        AgentCart<small>Approve once. Pay only for parts that fit, when they ship.</small>
       </Link>
       <nav className="nav" aria-label="Main">
         {link("/", "Shop")}
