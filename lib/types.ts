@@ -62,7 +62,18 @@ export type ShipVerdict = {
   label_text: string | null;
   reason: string;
   action: "CAPTURE" | "DO_NOT_CAPTURE";
+  /** No legible label in the photo. Not charged, and the check does not use up the repack (D3). */
+  unreadable?: boolean;
   mock?: boolean;
+};
+
+/** One finished label check on a line, kept so a repack does not erase the earlier evidence (D5). */
+export type ShipAttempt = {
+  /** Photo number for GET /api/orders/:id/photo/:line?n=<photo>. */
+  photo: number;
+  shipped_model: string;
+  verdict: ShipVerdict;
+  at: number;
 };
 
 export type Line = {
@@ -79,6 +90,10 @@ export type Line = {
   shipped_model?: string;
   /** True once a label photo is stored for this line (GET /api/orders/:id/photo/:line). */
   has_photo?: boolean;
+  /** Label photos stored for this line, numbered 1..photo_count; the latest is photo_count. */
+  photo_count?: number;
+  /** Every finished label check, oldest first; the last one matches `verdict` (D5). */
+  attempts?: ShipAttempt[];
   verdict?: ShipVerdict;
   error?: string;
   /** true while we cannot tell whether PayPal took the money for this line (risk R-P3). */
@@ -133,6 +148,15 @@ export type SearchStep = { category: string; candidates: SearchCandidate[] };
 
 /** The full record of how the bundle was chosen, so the ranking can be checked, not trusted. */
 export type SearchReceipt = { rule: string; catalogue_size: number; steps: SearchStep[] };
+
+/**
+ * Live progress while /api/bundle?stream=1 builds a bundle (one live build takes about a minute).
+ * goal: the goal was read. checking: an audit started. step: a category is settled.
+ */
+export type BundleProgress =
+  | { type: "goal"; constraints: Constraints; categories: string[] }
+  | { type: "checking"; category: string; product: string; against: string[] }
+  | { type: "step"; step: SearchStep; picked: string | null };
 
 export type BundleResponse = {
   constraints: Constraints;

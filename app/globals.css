@@ -80,7 +80,11 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .notice.info { background: #eaf0fd; border-color: #b9c8f3; color: #1f3a8f; }
 
 /* ledger: the one bold element */
-.ledger { position: sticky; top: 16px; display: grid; gap: 18px; }
+.ledger { display: grid; gap: 18px; }
+/* The money column follows the scroll only once it is short (after approval), so it never covers the PayPal buttons. */
+@media (min-width: 961px) { .side.sticky { position: sticky; top: 16px; } }
+.price-cell { display: grid; gap: 2px; }
+.price-cell strong { font-weight: 600; }
 .ledger h2 { font-stretch: 90%; }
 .meter { height: 18px; border-radius: 999px; background: #dfe5ea; overflow: hidden; display: flex; }
 .meter span { display: block; height: 100%; transition: width 400ms ease; }
@@ -186,7 +190,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .photo-drop:hover, .photo-drop:focus-within { border-color: var(--accent); }
 .photo-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .samples { display: grid; gap: 8px; }
-.sample-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.sample-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
 .sample {
   display: grid; gap: 4px; padding: 6px; background: #fff; color: var(--ink); border: 1px solid var(--line);
   font-size: 0.78rem; font-weight: 600; text-align: left; align-content: start;
@@ -206,3 +210,45 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 table.plain { border-collapse: collapse; width: 100%; }
 table.plain th, table.plain td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 table.plain .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* bundle build progress (streamed from /api/bundle?stream=1) */
+.tabular { font-variant-numeric: tabular-nums; }
+.progress-steps { list-style: none; margin: 0; padding: 0; display: grid; }
+.progress-steps li {
+  display: grid; grid-template-columns: 20px 112px minmax(0, 1fr); gap: 10px; align-items: baseline;
+  padding: 10px 0; border-top: 1px solid var(--line);
+}
+.progress-cat { font-weight: 700; }
+.progress-detail { display: grid; gap: 2px; }
+.progress-rejected { color: var(--rejected); }
+.progress-mark { font-weight: 800; text-align: center; }
+.progress-steps li.picked .progress-mark { color: var(--charged); }
+.progress-steps li.none .progress-mark { color: var(--rejected); }
+.progress-steps li.waiting { color: var(--muted); }
+.progress-steps li.checking .progress-mark::before {
+  content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid var(--line); border-top-color: var(--accent); animation: spin 800ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .progress-steps li.checking .progress-mark::before { animation: none; border-color: var(--accent); } }
+@media (max-width: 640px) {
+  .progress-steps li { grid-template-columns: 20px minmax(0, 1fr); }
+  .progress-detail { grid-column: 2; }
+}
+
+/* row states added for unconfirmed charges and parts the store can't supply */
+.state.UNCONFIRMED { color: var(--held); }
+.state.CANCELLED { color: var(--muted); }
+
+/* merchant console: repack, can't fulfil, unconfirmed charges */
+.verdict-panel.warn { border-color: var(--held); background: #fff6e0; }
+button.danger { background: var(--rejected); border-color: var(--rejected); color: #fff; }
+.push-right { margin-left: auto; }
+.cancel-box { border: 1px solid #eab7b2; background: #fdf5f4; border-radius: var(--radius-s); padding: 14px 16px; gap: 12px; }
+.order-id { font-variant-numeric: tabular-nums; word-break: break-all; }
+.order-lines { list-style: none; margin: 0; padding: 0; display: grid; }
+.order-lines li { display: grid; gap: 2px; padding: 10px 0; border-top: 1px solid var(--line); }
+.order-lines li:last-child { border-bottom: 1px solid var(--line); }
+.order-line-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.order-line-head .state { white-space: nowrap; font-size: 0.875rem; }
+.note-warn { color: #6b4a00; font-weight: 600; }

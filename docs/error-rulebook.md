@@ -24,7 +24,7 @@ Applies to the label-photo read (Gemini Flash). Every row here is thrown **after
 |---|---|---|---|---|---|---|
 | 6 | No photo, wrong type, bad data, or file is not really that image type (magic bytes) | 400 `photo_required` / `bad_photo`. Rejected **before** the line is claimed | Unchanged, check not counted | "Add a photo of the box label..." / "Use a JPEG, PNG or WebP photo." / "The file is not a valid image of that type." | Nothing changes | c-frontend |
 | 7 | Photo over 1.5 MB | 413 `photo_too_large`, before claim | Unchanged | "Use one under 1.5 MB." | Nothing changes | c-frontend |
-| 8 | Label unreadable (`legible: false`) | Verdict = do not charge | `NOT_CHARGED`, **counts as check 1 of 2** (see D3) | "The model on the label photo could not be read. Not charged; retake the photo." | Part blocked, not charged | c-frontend + A |
+| 8 | Label unreadable (`legible: false`) | Verdict = do not charge, flagged `unreadable`. **Not counted** (D3) | Previous state (`AUTHORISED`, or `NOT_CHARGED` on the repack); photo kept as evidence | "Label unreadable. This check was not counted. Take a clearer photo of the label and try again." | Part still held; "The store's label photo was unreadable. They are retaking it." | main |
 | 9 | Wrong variant (label, typed model, or AI disagrees) | Do not charge. One repack allowed | `NOT_CHARGED`; second mismatch cancels the line, released at close | The exact reason, e.g. "The label in the photo reads SM58S, not the verified part SM58-LC." | Part blocked, not charged | c-frontend + A |
 
 ## 3. PayPal fails when charging a part
@@ -34,7 +34,7 @@ Applies to the label-photo read (Gemini Flash). Every row here is thrown **after
 | 10 | PayPal clearly refuses (e.g. `AUTHORIZATION_EXPIRED`, `AUTHORIZATION_VOIDED`) | No retry; no money moved | `CAPTURE_FAILED` | "PayPal refused the charge (ISSUE). Do not ship." | Not charged | A |
 | 11 | Capture reply lost (timeout, 5xx) or `DUPLICATE_INVOICE_ID` | Retried once with the same `PayPal-Request-Id`, then looked up in PayPal's order record by `invoice_id`. Found = charged. Not found = unsure | `CAPTURED` if found; else `CAPTURE_FAILED` + `capture_uncertain` | Found: normal. Unsure: "PayPal did not confirm this charge. Do not ship yet." | Charged, or "being confirmed" | A |
 | 12 | Capture comes back `PENDING` | Treated as unsure | `CAPTURE_FAILED` + `capture_uncertain`; Finish refuses (409 `payment_pending`) until PayPal settles | "Do not ship yet." | Being confirmed | A |
-| 13 | Double click on Ship, or two merchants shipping the same line | Line locked as `SHIPPED` before any wait; PayPal dedupes on `PayPal-Request-Id: cap-<order>-<line>` | Second request gets 409 `line_not_authorised` | Second click is refused (409 `line_not_authorised`); C to word it | Charged once | A (sandbox screenshot still owed) |
+| 13 | Double click on Ship, or two merchants shipping the same line | Line locked as `SHIPPED` before any wait; PayPal dedupes on `PayPal-Request-Id: cap-<order>-<line>` | Second request gets 409 `line_not_authorised` | "This part was already processed, so nothing was done. It can never be charged twice." | Charged once | A (sandbox screenshot still owed) |
 
 ## 4. Holds and closing the order
 
@@ -52,8 +52,8 @@ Applies to the label-photo read (Gemini Flash). Every row here is thrown **after
 
 **D2. Quota error code.** Ahsanul returns 503 `ai_quota`; Cheston returns 429 `ai_rate_limited` with a separate free-tier message. Proposal: Cheston's (429 is the honest status, and the free-tier message is useful when someone forgets billing). The UI must match on one code.
 
-**D3. Does an unreadable photo use up the repack?** Today yes: `legible: false` becomes `NOT_CHARGED` and counts as check 1 of 2, so a blurry photo followed by a wrong part cancels the line. Proposal: an unreadable label should not count, because it says nothing about what was packed. Small change in `shipLine`; needs Cheston's agreement since it touches his rule.
+**D3. Does an unreadable photo use up the repack?** **Decided (6 Nov): no.** An unreadable label says nothing about what was packed, so `shipLine` returns the line to its previous state and does not count the check. The verdict carries `unreadable: true`. The daily AI cap still limits retries.
 
 **D4. Which state after a failed label check.** Cheston's code returns the line to `AUTHORISED`; mine returns it to its previous state. They differ only on the repack: `AUTHORISED` would give the merchant a fresh pair of checks after a wrong variant. Merged version uses the previous state.
 
-**D5. Evidence on repack.** The second photo overwrites the first, so the photo of the wrong variant is lost. Fine for the demo; worth keeping both if we claim "evidence" on a slide.
+**D5. Evidence on repack.** **Decided (6 Nov): keep every photo.** Photos are numbered per line (`line.photo_count`), every finished check is kept in `line.attempts` with its photo number, and `GET /api/orders/:id/photo/:line?n=<photo>` serves an earlier one (without `n`, the latest). The merchant console links each one ("wrong part", "unreadable", "matched").

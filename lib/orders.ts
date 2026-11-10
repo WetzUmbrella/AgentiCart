@@ -5,6 +5,7 @@ import { toCents } from "./money";
 import { getPayPal, isUncertain, PayPalError, type Capture, type PayPalApi, type PurchaseUnit } from "./paypal";
 import { checkShippedModel as realCheck } from "./ai";
 import { parsePhoto } from "./photos";
+import { canShip, checksLeft, MAX_CHECKS } from "./ship-rules";
 import { deletePhoto, getOrder, logEvent, orders, resetOrder, saveOrder, savePhoto } from "./store";
 import type { Line, LineState, Order, ShipPhoto, ShipVerdict } from "./types";
 
@@ -192,13 +193,7 @@ export type ShipInput = {
 /** checks_left: how many more model checks this line may have (0 = no repack left). */
 export type ShipResult = { verdict: ShipVerdict; captured: boolean; capture_id?: string; line: Line; checks_left: number };
 
-/** A wrong variant blocks the line; the merchant gets ONE repack, so two checks in total (risk R-M1). */
-export const MAX_CHECKS = 2;
-
-/** A blocked line (wrong variant) may be checked again; a cancelled ("can't fulfil") line may not. */
-const canRecheck = (l: Line) => l.state === "NOT_CHARGED" && !l.cancel_reason && (l.checks ?? 0) < MAX_CHECKS;
-
-const checksLeft = (l: Line) => (l.state === "NOT_CHARGED" && !l.cancel_reason ? Math.max(0, MAX_CHECKS - (l.checks ?? 0)) : 0);
+export { MAX_CHECKS } from "./ship-rules";
 
 const TRACKING = /^[A-Za-z0-9-]{1,40}$/;
 
@@ -209,7 +204,7 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
 
   // Guard: only an AUTHORISED line, or a blocked line with its one repack left, can be checked.
   // Stops double charges and stops a cancelled or twice-blocked line being charged (review 1.2).
-  if (line.state !== "AUTHORISED" && !canRecheck(line)) {
+  if (!canShip(line)) {
     throw new HttpError(409, "line_not_authorised", { state: line.state, line });
   }
   if (line.auth_id && order.voided_auth_ids?.includes(line.auth_id)) {
@@ -225,8 +220,10 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
   line.checks = (line.checks ?? 0) + 1;
   line.shipped_model = String(input.shipped_model ?? "").slice(0, 64);
   line.error = undefined;
-  // Kept as evidence whether or not the part is charged.
-  savePhoto(order.orderId, line.line_id, photo);
+  // Kept as evidence whether or not the part is charged. Each check keeps its own photo (D5).
+  const photoNo = (line.photo_count ?? 0) + 1;
+  savePhoto(order.orderId, line.line_id, photoNo, photo);
+  line.photo_count = photoNo;
   line.has_photo = true;
   logEvent(order, `SHIPPED ${line.line_id} "${line.shipped_model}" with label photo`);
 
@@ -238,14 +235,25 @@ export async function shipLine(input: ShipInput, deps: Deps = defaultDeps()): Pr
     // Nothing was charged, so it is safe to let the merchant try again (review 1.5).
     line.state = previous;
     line.checks = (line.checks ?? 1) - 1;
-    deletePhoto(order.orderId, line.line_id);
-    line.has_photo = false;
+    deletePhoto(order.orderId, line.line_id, photoNo);
+    line.photo_count = photoNo - 1;
+    line.has_photo = photoNo > 1;
     line.error = "The label check failed. Nothing was charged. Try again.";
     logEvent(order, `CHECK_FAILED ${line.line_id}`);
     throw err instanceof HttpError ? err : new HttpError(502, "check_failed", { message: line.error });
   }
   verdict = { ...verdict, line_id: line.line_id }; // code sets line_id, not the model (review 1.15)
   line.verdict = verdict;
+  line.attempts = [...(line.attempts ?? []), { photo: photoNo, shipped_model: line.shipped_model, verdict, at: Date.now() }];
+
+  // An unreadable label says nothing about what was packed, so it is not counted (D3):
+  // the line goes back to where it was and the merchant retakes the photo.
+  if (verdict.unreadable) {
+    line.state = previous;
+    line.checks = (line.checks ?? 1) - 1;
+    logEvent(order, `UNREADABLE ${line.line_id} (not counted)`);
+    return { verdict, captured: false, line, checks_left: checksLeft(line) };
+  }
 
   if (verdict.action !== "CAPTURE") {
     line.state = "NOT_CHARGED";
@@ -333,7 +341,7 @@ export function cancelLine(input: CancelInput): { line: Line } {
   if (order.status === "CLOSED") throw new HttpError(409, "order_closed");
   const line = lineOf(order, input.line_id);
   // A held line, or a blocked line (wrong variant) the merchant cannot repack, can be cancelled.
-  if (line.state !== "AUTHORISED" && !canRecheck(line)) {
+  if (!canShip(line)) {
     throw new HttpError(409, "line_not_authorised", { state: line.state, line });
   }
   const reason =

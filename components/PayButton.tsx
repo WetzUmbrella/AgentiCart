@@ -76,6 +76,7 @@ export default function PayButton({ lines, mode, clientId, disabled, onAuthorise
             onError(e instanceof Error ? e.message : "Authorisation failed. Please try again.");
           }
         }}
+        onCancel={() => onError("Payment not approved. Nothing was charged.")}
         onError={() => onError("PayPal could not complete the approval. Nothing was charged.")}
       />
     </PayPalScriptProvider>

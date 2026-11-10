@@ -9,7 +9,7 @@ const OUTCOME: Record<SearchOutcome, { mark: string; label: string }> = {
   filtered_out: { mark: "–", label: "Ruled out" },
 };
 
-const CATEGORY: Record<string, string> = {
+export const CATEGORY: Record<string, string> = {
   interface: "Interface",
   microphone: "Microphone",
   cable: "Cable",
