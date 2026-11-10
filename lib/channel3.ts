@@ -20,7 +20,9 @@ type Offer = {
   availability?: string;
   condition?: string | null;
 };
-type Listing = { id?: string; offers?: Offer[]; variants?: { id?: string; offers?: Offer[] }[] };
+type Variant = { id?: string; offers?: Offer[] };
+/** Channel3 sometimes returns `variants` as an object ({ options, selected }) instead of a list. */
+type Listing = { id?: string; offers?: Offer[]; variants?: Variant[] | Record<string, unknown> };
 
 export const TIMEOUT_MS = 3000;
 export const CACHE_MS = 10 * 60 * 1000;
@@ -45,7 +47,8 @@ const currencyOf = (o: Offer): string | undefined => (typeof o.price === "object
 
 /** Offers for the exact ID we mapped. Variant IDs (the two SM58s) use that variant's offers when present. */
 export function offersFor(listing: Listing, id: string): Offer[] {
-  const variant = listing.variants?.find((v) => v.id === id && Array.isArray(v.offers));
+  const variants = Array.isArray(listing.variants) ? listing.variants : [];
+  const variant = variants.find((v) => v?.id === id && Array.isArray(v.offers));
   return variant?.offers ?? listing.offers ?? [];
 }
 

@@ -83,6 +83,20 @@ describe("livePrice", () => {
     expect(await livePrice(sm58s)).toMatchObject({ price_usd: 109, retailer: "v.com" });
   });
 
+  it("handles variants as an object ({ options, selected }), as Channel3 returns for the SM58-LC", async () => {
+    vi.stubGlobal("fetch", respond({
+      id: sm58s.channel3_id,
+      offers: [offer({ domain: "w.com", amount: 109 })],
+      variants: { options: [{ name: "Model", values: ["SM58-LC", "SM58S"] }], selected: { Model: "SM58S" } },
+    }));
+    expect(await livePrice(sm58s)).toMatchObject({ price_usd: 109, retailer: "w.com", source: "live" });
+  });
+
+  it("handles a missing or null variants field", async () => {
+    vi.stubGlobal("fetch", respond({ id: sm58s.channel3_id, offers: [offer({ domain: "n.com", amount: 105 })], variants: null }));
+    expect(await livePrice(sm58s)).toMatchObject({ price_usd: 105, retailer: "n.com", source: "live" });
+  });
+
   it("with LIVE_PRICES=0 never calls Channel3 and keeps the fixed price", async () => {
     vi.stubEnv("LIVE_PRICES", "0");
     const fetchMock = vi.fn();
