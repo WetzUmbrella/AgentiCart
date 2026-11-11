@@ -83,3 +83,4 @@ Added 5 Nov 2026 by D, against the plan in `docs/channel3.md`. Live prices only 
 2. `capture_uncertain: true` shows "Being confirmed" with "Do not ship yet" on the merchant console, and "PayPal is confirming whether this part was charged" to the shopper. The ledger keeps unconfirmed money apart from parts that won't be charged.
 3. R-M1 and R-M2 are kept: a blocked line with a check left can be rechecked, `cancel_reason` is shown on both pages, and "Can't fulfil this part" calls `POST /api/cancel-line`.
 4. "Start over" reads the reset reply: if PayPal could not confirm the release, the shopper is told the hold is released automatically within 24 h.
+5. (12 Nov) A page refresh keeps the shopper's bundle and order: the bundle and the order id are saved in the browser (`lib/session.ts`, `localStorage`, 24 h) and the order is read back from the server. A server restart (R-S1) still shows "order expired".
