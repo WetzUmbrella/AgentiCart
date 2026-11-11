@@ -13,9 +13,12 @@ import type { AuditVerdict, Evidence, QuoteCheck, Trust, TrustLevel, TrustSignal
  * Server only. Nothing here can move money.
  */
 
-/** Lower-case, collapse whitespace and dashes, drop punctuation, so line breaks in a PDF don't matter. */
+/**
+ * Lower-case, collapse whitespace and dashes, drop punctuation, so line breaks in a PDF don't matter.
+ * Spaces around a slash are dropped first: PDFs often extract fractions as "5 / 8" where the sheet shows "5/8".
+ */
 export const flatText = (s: string) =>
-  s.toLowerCase().replace(/[\s‐-―-]+/g, " ").replace(/[^\w ]/g, "").trim();
+  s.toLowerCase().replace(/\s*\/\s*/g, "/").replace(/[\s‐-―-]+/g, " ").replace(/[^\w ]/g, "").trim();
 
 /**
  * PDFs break words across lines ("rein-\nforcement"). The text is tried both with those breaks
