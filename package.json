@@ -1,7 +1,7 @@
 {
   "name": "agentcart",
   "version": "0.1.0",
-  "description": "Approve once. Pay only for parts confirmed to fit. PayPal AI Hackathon entry.",
+  "description": "Approve once. Pay only for parts that fit, when they ship. PayPal AI Hackathon entry.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

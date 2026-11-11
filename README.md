@@ -8,7 +8,7 @@ Built for the PayPal AI Hackathon.
 
 ## Try it
 
-- Hosted demo: `[Render URL]`
+- Hosted demo: https://agentcart-7392.onrender.com (Render, Singapore region, deployed from `main`)
 - Log in to the PayPal popup with the judge sandbox account: `[judge email]` / `[judge password]`
 - The first load can take about a minute if the free server was asleep.
 - Type a goal (the default is "Podcast setup for 2 people under $900") and press **Build my bundle**.
