@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import BuildProgress, { applyProgress, startProgress, type Progress } from "@/components/BuildProgress";
 import BundleGrid, { type GridRow } from "@/components/BundleGrid";
 import Ledger from "@/components/Ledger";
@@ -11,6 +11,7 @@ import { useConfig } from "@/components/useConfig";
 import { api, ApiError, apiStream, usd } from "@/lib/client";
 import type { PublicProduct } from "@/lib/catalogue";
 import { lineRowState, storeLabel } from "@/lib/labels";
+import { clearSession, loadSession, saveSession, type ShopperSession } from "@/lib/session";
 import { totalsFor } from "@/lib/totals";
 import type { AuditVerdict, BundleLine, BundleProgress, BundleResponse, Line, Order } from "@/lib/types";
 
@@ -26,16 +27,28 @@ function shopperNote(l: Line): string | undefined {
   return l.error ?? l.verdict?.reason;
 }
 
+const noSubscription = () => () => {};
+
+/**
+ * A refresh must not lose the bundle or the order, so the shop starts from what this browser saved.
+ * The server render and the first browser render have no saved session; the shop is then mounted
+ * again with it, which keeps the first render the same on both sides.
+ */
 export default function ShopperPage() {
+  const inBrowser = useSyncExternalStore(noSubscription, () => true, () => false);
+  return <Shop key={inBrowser ? "browser" : "server"} inBrowser={inBrowser} saved={inBrowser ? loadSession() : null} />;
+}
+
+function Shop({ inBrowser, saved }: { inBrowser: boolean; saved: ShopperSession | null }) {
   const cfg = useConfig();
-  const [goal, setGoal] = useState(DEMO_GOAL);
-  const [bundle, setBundle] = useState<BundleResponse | null>(null);
-  const [lines, setLines] = useState<BundleLine[]>([]);
+  const [goal, setGoal] = useState(saved?.goal ?? DEMO_GOAL);
+  const [bundle, setBundle] = useState<BundleResponse | null>(saved?.bundle ?? null);
+  const [lines, setLines] = useState<BundleLine[]>(saved?.lines ?? []);
   const [rechecking, setRechecking] = useState<string | null>(null);
   // Low-trust lines stay out of the PayPal approval until the shopper keeps them (or swaps them).
-  const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
-  const [swapped, setSwapped] = useState(false);
-  const [orderId, setOrderId] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState<Set<string>>(() => new Set(saved?.confirmed));
+  const [swapped, setSwapped] = useState(saved?.swapped ?? false);
+  const [orderId, setOrderId] = useState<string | null>(saved?.orderId ?? null);
   const [order, setOrder] = useState<Order | null>(null);
   const [swapRow, setSwapRow] = useState<GridRow | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -45,6 +58,12 @@ export default function ShopperPage() {
   const [finishFailed, setFinishFailed] = useState(false);
   const loading = progress !== null;
   const [expired, setExpired] = useState(false);
+
+  useEffect(() => {
+    if (!inBrowser) return;
+    if (bundle) saveSession({ goal, bundle, lines, confirmed: [...confirmed], swapped, orderId });
+    else clearSession();
+  }, [inBrowser, goal, bundle, lines, confirmed, swapped, orderId]);
 
   // Poll the order every 2 seconds until it is closed.
   useEffect(() => {

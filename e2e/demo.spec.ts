@@ -91,3 +91,35 @@ test("finish shows the server's reason and stays retryable", async ({ page }) =>
   await page.getByRole("button", { name: "Try Finish again" }).click();
   await expect(page.getByRole("heading", { name: "Order finished" })).toBeVisible();
 });
+
+test("a refresh keeps the bundle and the order; Start over forgets them", async ({ page }) => {
+  // The restored page must hydrate cleanly: React reports a mismatch as a console error.
+  const consoleErrors: string[] = [];
+  page.on("console", (m) => void (m.type() === "error" && consoleErrors.push(m.text())));
+  page.on("pageerror", (e) => void consoleErrors.push(e.message));
+  await page.goto("/");
+  await page.getByRole("button", { name: "Build my bundle" }).click();
+  await expect(page.getByText("How these parts were picked")).toBeVisible({ timeout: 30_000 });
+
+  // Before approval: the bundle comes back without building it again.
+  await page.reload();
+  await expect(page.locator(".ag-row").filter({ hasText: "Compass" })).toBeVisible();
+  await expect(page.locator(".ag-row").filter({ hasText: "Yeti Orb" })).toContainText("Not in bundle");
+
+  // After approval: the same order comes back, still open.
+  await page.getByRole("button", { name: /Approve with PayPal/ }).click();
+  await expect(page.getByRole("heading", { name: "Waiting for parts to ship" })).toBeVisible();
+  const orderLine = await page.getByText(/^Order \S+$/).textContent();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Waiting for parts to ship" })).toBeVisible();
+  await expect(page.getByText(orderLine!)).toBeVisible();
+  await expect(page.locator(".ag-row").filter({ hasText: "Compass" })).toContainText("Held");
+  await expect(page.getByRole("link", { name: "Open merchant console" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Start over" }).click();
+  await expect(page.locator(".ag-row")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Build my bundle" })).toBeEnabled();
+  await expect(page.locator(".ag-row")).toHaveCount(0);
+  expect(consoleErrors).toEqual([]);
+});

@@ -14,6 +14,7 @@ Built for the PayPal AI Hackathon.
 - Type a goal (the default is "Podcast setup for 2 people under $900") and press **Build my bundle**.
 - Approve with PayPal, then open the **merchant console** from the link on the page and ship parts with a photo of the box label. Use the sample labels: the `SM58S` label on the Shure line, or the blurry label, shows a part that is not charged.
 - Press **Finish order** to release the rest of the hold. **Start over** clears only your own order.
+- Refreshing the page keeps your bundle and your order (they are remembered in your browser for a day). **Start over** forgets them.
 
 ## How it works
 
