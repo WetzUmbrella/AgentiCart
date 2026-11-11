@@ -45,7 +45,10 @@ export const UNCERTAIN_MESSAGE =
 /** Tag on every capture, so a capture whose reply was lost can be found in PayPal's record. */
 export const invoiceIdFor = (orderId: string, lineId: string) => `${orderId}-${lineId}`;
 
-const isDuplicateInvoice = (err: unknown) => err instanceof PayPalError && err.issue === "DUPLICATE_INVOICE_ID";
+// Real PayPal answers a reused invoice_id with DUPLICATE_TRANSACTION (sandbox run 12 Nov, order 34J556335D5584003).
+// DUPLICATE_INVOICE_ID is kept in case another account setting or endpoint returns it.
+const isDuplicateInvoice = (err: unknown) =>
+  err instanceof PayPalError && (err.issue === "DUPLICATE_TRANSACTION" || err.issue === "DUPLICATE_INVOICE_ID");
 
 /** Finds our capture in PayPal's order record. null = PayPal has no such capture. */
 async function lookupCapture(orderId: string, invoiceId: string, deps: Deps): Promise<Capture | null | "unreachable"> {

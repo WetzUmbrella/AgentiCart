@@ -81,8 +81,11 @@ export const mockPayPal: PayPalApi = {
     return once(requestId, () => {
       const a = state.auths.get(authId) ?? fail(404, "RESOURCE_NOT_FOUND", "capture");
       if (a.voided) fail(422, "AUTHORIZATION_VOIDED", "capture");
+      // Stricter than real PayPal, which accepted 1 cent over (sandbox run 12 Nov): kept so tests catch any
+      // over-capture by our own code, since PayPal will not.
       if (a.captured + cents > a.authorised) fail(422, "MAX_CAPTURE_AMOUNT_EXCEEDED", "capture");
-      if (invoiceId && state.invoices.has(invoiceId)) fail(422, "DUPLICATE_INVOICE_ID", "capture");
+      // The code real PayPal returns for a reused invoice_id (sandbox run 12 Nov).
+      if (invoiceId && state.invoices.has(invoiceId)) fail(422, "DUPLICATE_TRANSACTION", "capture");
       a.captured += cents;
       const c: MockCapture = { id: nextId("CAP"), cents, invoice_id: invoiceId, status: "COMPLETED" };
       a.captures.push(c);
