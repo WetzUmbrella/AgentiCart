@@ -10,6 +10,34 @@ Each script prints a ready-made row for this table. Run them with `PAYPAL_MODE=s
 | 4 | Audit on the 5 seed cases: at least 4/5 correct with real quotes; record seconds per call | `npm run testset -- data/seed.json` | B | **PASS** (2 Nov) | 5/5 correct on `gemini-3.1-pro-preview`, every verdict cites spec-sheet quotes from both parts. 7.7 to 11.0 s per call, mean 8.5 s. Dev run on seed cases only; not the published score. |
 | 5 | Agent Toolkit fit | Read `@paypal/agent-toolkit` source | A/B | **Dropped** (2 Nov) | The review found `create_order` hard-codes `intent: 'CAPTURE'`. The app does not use the toolkit. |
 
+## Sandbox money-path run (Thu 12 Nov, A)
+
+`npx tsx scripts/sandbox-money-path.mts` checks, once each, what `lib/paypal-mock.ts` assumes about real PayPal. Two orders, each approved once as the sandbox shopper. Order B is kept apart so a stray charge from a probe can't use up A's hold.
+
+- Order A `9WC24662Y7928940Y`, auth `7WJ00824GW7730801`, $100.00 (L1 $50.00, L2 $30.00, L3 $20.00). Captures `7FA24046RS6677621` $50.00 and `93767284AY8768611` $30.00.
+- Order B `34J556335D5584003`, auth `98J78829UD2639104`, $20.00. Capture `4XV56194HP916245T` $10.00, then the probe capture `4GD71596S4470383J` $10.01.
+
+| Check | Mock assumes | Real PayPal | Verdict |
+|---|---|---|---|
+| A1 Auth after one partial capture | `PARTIALLY_CAPTURED` | `PARTIALLY_CAPTURED` | Mock right |
+| A2 Capture on an expired auth (`PayPal-Mock-Response`) | Not modelled; app needs a clear refusal | 422 `AUTHORIZATION_EXPIRED`, not uncertain | Mock right |
+| A3 Void after partial captures | Succeeds | Succeeds | Mock right |
+| A4 Auth after void | `VOIDED` | `VOIDED` | Mock right |
+| A5 Capture after void | 422 `AUTHORIZATION_VOIDED` | 422 `AUTHORIZATION_VOIDED` | Mock right |
+| A6 Void twice | 422 `PREVIOUSLY_VOIDED` | 422 `PREVIOUSLY_VOIDED`; auth still reads `VOIDED` | Mock right |
+| A7 `invoice_id` on captures in PayPal's order record (R-P3) | Present | `<orderId>-L1` and `<orderId>-L2` both found | Mock right |
+| A8 `reconcile` v2 against PayPal's record | PASS, settled | PASS, settled, `MATCHED`; $100.00 held = $80.00 charged + $20.00 released; amount checks ran (2/2 captures, auth $100.00) | Mock right |
+| B1 Reused `invoice_id`, new `PayPal-Request-Id` | 422 `DUPLICATE_INVOICE_ID` | 422 `DUPLICATE_TRANSACTION` | **Mock wrong** |
+| B2 Capture 1 cent over what is left | 422 `MAX_CAPTURE_AMOUNT_EXCEEDED` | Accepted: B charged $20.01 on a $20.00 auth | **Mock wrong** |
+
+What changed because of B:
+
+- **B1 was a real bug, now fixed.** `orders.ts` only treated `DUPLICATE_INVOICE_ID` as "may already be charged", so `DUPLICATE_TRANSACTION` would have been read as a clear refusal and the line marked "Do not ship" although PayPal had charged it. It now goes to the `invoice_id` lookup like a timeout. The mock returns the real code, and a new test checks the line ends CAPTURED, charged once. Reaching this in the app needs the same `invoice_id` with a different request ID; the app always sends `cap-<order>-<line>` for a line, so it should not happen in practice.
+- **B2 needs no code change.** PayPal is no backstop against over-capture. The app only ever captures `line.amount_cents`, fixed at order creation, and the lines add up to the authorisation; the line lock and per-line request ID stop a second capture. The mock still refuses over-capture on purpose, so tests catch it if our code ever tries.
+- Nothing left held: A was voided; B's authorisation is `CAPTURED`, so its cleanup void was refused with `PREVIOUSLY_CAPTURED`.
+- `reconcile` ran on a hand-built closed order made from A's real IDs, so it tests the comparison with PayPal, not the app's own close. A full run through the app is still owed (H17).
+- Approval: the PayPal page keeps spinning after the final click, likely because the order has no return URL (not verified). The approval still registers; the script reads it from PayPal instead of waiting for Enter.
+
 ## Decisions
 Confirmed by A, B and C by message, 5 to 9 Nov (no call).
 
@@ -36,7 +64,8 @@ Confirmed by A, B and C by message, 5 to 9 Nov (no call).
 - Builder: **Ahsanul**. `lib/channel3.ts` merged into main (PR #4, 6 Nov), 143/143 tests passing. `livePrice(product)` returns `{ price_usd, source: "live" | "fixed", retailer?, checked_at }`; `checked_at` is an ISO time for live prices and `price_date` for fixed ones.
 - Product choice stays on the **fixed price**: `bundle.ts` keeps sorting on `price_usd`, and the live price is used only for what's shown and charged, so live prices can never change which products are picked.
 - `LIVE_PRICES` defaults to **0**, so nothing changes until it's switched on. As of 9 Nov nothing in the app calls `livePrice()` yet: the price cell (C) and orders (A) still use `price_usd`.
-- Open: whether the charge uses the price saved at checkout (asked of Yi Heng), and whether "Channel3" can be named on screen (organisers' reply pending).
+- Answered 10 Nov (A): the charge never reads a live price. `createOrder` stores each line's amount from the catalogue `price_usd`, and the capture in `shipLine` charges that stored amount, so a price rise after approval can't push a capture over the hold.
+- Open: whether "Channel3" can be named on screen (organisers' reply pending).
 
 ### Channel3 live-price test (Mon 9 Nov, Des)
 Run on main's `lib/channel3.ts` by calling `livePrice()` for all 23 catalogue products with `LIVE_PRICES=1`, because the screens don't use live prices yet.
