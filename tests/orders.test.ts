@@ -429,6 +429,27 @@ describe("uncertain charges (risk R-P3)", () => {
     expect(mockCapturedCents(r.line.auth_id!)).toBe(21800);
   });
 
+  it("treats PayPal's DUPLICATE_TRANSACTION as 'may be charged' and confirms by lookup, not as a refusal", async () => {
+    const getOrder = vi.fn(mockPayPal.getOrder);
+    const deps = makeDeps({
+      paypal: {
+        ...mockPayPal,
+        getOrder,
+        captureAuthorization: async (...args) => {
+          await mockPayPal.captureAuthorization(...args); // an earlier attempt already took the money
+          throw new PayPalError(422, JSON.stringify({ details: [{ issue: "DUPLICATE_TRANSACTION" }] }), "capture");
+        },
+      },
+    });
+    const id = await authorised(deps);
+    const r = await ship(id, "line-2", "SM58-LC", deps);
+    expect(getOrder).toHaveBeenCalled();
+    expect(r.captured).toBe(true);
+    expect(r.line.state).toBe("CAPTURED");
+    expect(r.line.error).toBeUndefined();
+    expect(mockCapturedCents(r.line.auth_id!)).toBe(21800); // charged once, not twice
+  });
+
   it("says 'do not ship' when the charge never happened, then close confirms and releases", async () => {
     const deps = makeDeps({ paypal: { ...mockPayPal, captureAuthorization: async () => Promise.reject(timeout()) } });
     const id = await authorised(deps);

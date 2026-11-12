@@ -10,7 +10,7 @@ const json = (status: number, body: unknown) =>
 type Reply = Response | Error;
 
 function fakeFetch(apiReplies: Reply[]) {
-  const calls: { url: string; requestId: string | null }[] = [];
+  const calls: { url: string; requestId: string | null; mock: string | null }[] = [];
   let tokenCalls = 0;
   vi.stubGlobal(
     "fetch",
@@ -20,7 +20,8 @@ function fakeFetch(apiReplies: Reply[]) {
         tokenCalls++;
         return json(200, { access_token: `T${tokenCalls}`, expires_in: 3600 });
       }
-      calls.push({ url: u, requestId: new Headers(init?.headers).get("PayPal-Request-Id") });
+      const h = new Headers(init?.headers);
+      calls.push({ url: u, requestId: h.get("PayPal-Request-Id"), mock: h.get("PayPal-Mock-Response") });
       const next = apiReplies.shift();
       if (!next) throw new Error("test ran out of fake replies");
       if (next instanceof Error) throw next;
@@ -41,6 +42,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  delete process.env.PAYPAL_API_BASE;
 });
 
 describe("PayPal client retries (risk R-P1)", () => {
@@ -86,6 +88,28 @@ describe("PayPal client retries (risk R-P1)", () => {
     await restPayPal.captureAuthorization("AUTH1", 100, false, "cap-x");
     expect(f.tokenCalls()).toBe(2);
     expect(f.calls).toHaveLength(2);
+  });
+});
+
+describe("PayPal-Mock-Response is sandbox-only", () => {
+  const EXPIRED = '{"mock_application_codes":"AUTHORIZATION_EXPIRED"}';
+
+  it("sends the header on the sandbox base, and only when asked", async () => {
+    const f = fakeFetch([COMPLETED(), COMPLETED()]);
+    await restPayPal.captureAuthorization("AUTH1", 100, false, "cap-a", "inv-a", EXPIRED);
+    await restPayPal.captureAuthorization("AUTH1", 100, false, "cap-b", "inv-b");
+    expect(f.calls[0].url.startsWith("https://api-m.sandbox.paypal.com/")).toBe(true);
+    expect(f.calls.map((c) => c.mock)).toEqual([EXPIRED, null]);
+  });
+
+  it("refuses to send anything when the base URL is not the sandbox", async () => {
+    process.env.PAYPAL_API_BASE = "https://api-m.paypal.com";
+    const f = fakeFetch([COMPLETED()]);
+    const err = await restPayPal.captureAuthorization("AUTH1", 100, false, "cap-x", "inv-x", EXPIRED).catch((e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(PayPalError);
+    expect(f.calls).toHaveLength(0);
+    expect(f.tokenCalls()).toBe(0);
   });
 });
 

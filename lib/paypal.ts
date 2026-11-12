@@ -49,6 +49,12 @@ export interface PayPalApi {
     finalCapture: boolean,
     requestId: string,
     invoiceId?: string,
+    /**
+     * Sandbox negative testing only: sent as the PayPal-Mock-Response header, e.g.
+     * '{"mock_application_codes":"AUTHORIZATION_EXPIRED"}'. Refused unless the base URL is the sandbox.
+     * App code never passes this; the sandbox scripts do.
+     */
+    mockResponse?: string,
   ): Promise<Capture>;
   voidAuthorization(authId: string, requestId: string): Promise<void>;
   getOrder(orderId: string): Promise<OrderDetails>;
@@ -82,6 +88,9 @@ export function buildOrderBody(units: PurchaseUnit[]) {
     }),
   };
 }
+
+/** The only base URL that may receive a PayPal-Mock-Response header. Exact match, never a substring. */
+const SANDBOX_BASE = "https://api-m.sandbox.paypal.com";
 
 let cachedToken: { value: string; expires: number } | null = null;
 
@@ -131,7 +140,13 @@ async function getAccessToken(): Promise<string> {
   }
 }
 
-async function ppOnce<T>(path: string, method: string, body?: unknown, requestId?: string): Promise<T> {
+async function ppOnce<T>(
+  path: string,
+  method: string,
+  body?: unknown,
+  requestId?: string,
+  mockResponse?: string,
+): Promise<T> {
   const token = await getAccessToken();
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
@@ -139,6 +154,7 @@ async function ppOnce<T>(path: string, method: string, body?: unknown, requestId
     Prefer: "return=representation",
   };
   if (requestId) headers["PayPal-Request-Id"] = requestId;
+  if (mockResponse) headers["PayPal-Mock-Response"] = mockResponse; // pp() has already checked the base URL
   const { res, text } = await send(`${config.paypalBase}${path}`, `${method} ${path}`, {
     method,
     headers,
@@ -149,20 +165,25 @@ async function ppOnce<T>(path: string, method: string, body?: unknown, requestId
   return (text ? JSON.parse(text) : {}) as T;
 }
 
-async function pp<T>(path: string, method: string, body?: unknown, requestId?: string): Promise<T> {
+async function pp<T>(path: string, method: string, body?: unknown, requestId?: string, mockResponse?: string): Promise<T> {
+  // Fail before sending anything: dropping the header and sending anyway would turn a negative test
+  // into a real capture. Thrown outside the try below, so it is never retried.
+  if (mockResponse && config.paypalBase !== SANDBOX_BASE) {
+    throw new Error(`PayPal-Mock-Response refused: base URL is ${config.paypalBase}, not the sandbox`);
+  }
   try {
-    return await ppOnce<T>(path, method, body, requestId);
+    return await ppOnce<T>(path, method, body, requestId, mockResponse);
   } catch (err) {
     if (err instanceof PayPalError && err.status === 401) {
       // Token expired or was revoked early: nothing was processed, so retry once with a fresh token.
       cachedToken = null;
-      return ppOnce<T>(path, method, body, requestId);
+      return ppOnce<T>(path, method, body, requestId, mockResponse);
     }
     // Only repeat a request PayPal will recognise as a repeat (same request ID), or a plain read.
     const safeToRepeat = Boolean(requestId) || method === "GET";
     if (!safeToRepeat || !isUncertain(err)) throw err;
     await sleep(ppTiming.retryDelayMs);
-    return ppOnce<T>(path, method, body, requestId);
+    return ppOnce<T>(path, method, body, requestId, mockResponse);
   }
 }
 
@@ -172,7 +193,7 @@ export const restPayPal: PayPalApi = {
   authorizeOrder: (orderId, requestId) =>
     pp<AuthorizedOrder>(`/v2/checkout/orders/${orderId}/authorize`, "POST", {}, requestId),
 
-  captureAuthorization: (authId, cents, finalCapture, requestId, invoiceId) =>
+  captureAuthorization: (authId, cents, finalCapture, requestId, invoiceId, mockResponse) =>
     pp<Capture>(
       `/v2/payments/authorizations/${authId}/capture`,
       "POST",
@@ -182,6 +203,7 @@ export const restPayPal: PayPalApi = {
         ...(invoiceId ? { invoice_id: invoiceId } : {}),
       },
       requestId,
+      mockResponse,
     ),
 
   voidAuthorization: async (authId, requestId) => {
