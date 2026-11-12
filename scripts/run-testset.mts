@@ -35,8 +35,22 @@ for (const c of cases) {
   const check = getProduct(c.check);
   const others = c.bundle.filter((id) => id !== c.check).map(getProduct);
   if (!check || others.some((p) => !p)) throw new Error(`${c.case_id}: unknown product id`);
-  const t = Date.now();
-  const v = await auditCompatibility(check, others as NonNullable<(typeof others)[number]>[]);
+  // A dropped connection says nothing about the answer, so the case is asked again (up to 4 tries).
+  // Any other error (rate limit, bad key, bad model) still stops the run. Retries are logged.
+  let v: Awaited<ReturnType<typeof auditCompatibility>> | undefined;
+  let t = Date.now();
+  for (let attempt = 1; !v; attempt++) {
+    t = Date.now();
+    try {
+      v = await auditCompatibility(check, others as NonNullable<(typeof others)[number]>[]);
+    } catch (err) {
+      const msg = String((err as { extra?: { message?: string } })?.extra?.message ?? err);
+      const network = /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket hang up|took too long/i.test(msg);
+      if (!network || attempt >= 4) throw err;
+      console.log(`${c.case_id.padEnd(6)} retry ${attempt}: ${msg}`);
+      await new Promise((r) => setTimeout(r, 15_000));
+    }
+  }
   const ok = v.compatible === c.expected_compatible;
   correct += ok ? 1 : 0;
   console.log(
