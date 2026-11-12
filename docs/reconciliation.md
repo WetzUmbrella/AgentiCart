@@ -56,7 +56,7 @@ Every rule above was tested by breaking it on purpose (17 deliberate breaks): ea
 ## What it does not prove yet
 
 - **Amounts at PayPal in mock mode.** The mock returns no amounts, so those checks only run against the sandbox. In tests, `mockCapturedCents` and `mockIsVoided` stand in. They have now run once against the real sandbox (12 Nov, order `9WC24662Y7928940Y`): PASS, settled, `MATCHED`, with both capture amounts and the $100.00 authorisation checked.
-- **The app's own close, end to end.** That sandbox run built the closed order by hand from real IDs, so it proves the comparison with PayPal, not `closeOrder`. A full run through the app is still owed (H17).
+- **The app's own close, end to end.** Done in H17 (12 Nov, `go-no-go.md`): order `9J09700723563923V` closed by the app, PASS, settled, `MATCHED`. Still untested: an order where every line is charged, so close voids nothing (H17b).
 - **Fees.** `charged_cents` is what the shopper paid, not what the merchant receives. PayPal takes a fee on each capture (test 2: $2.00 and $1.32 on $50.00 and $30.00 captures); reconcile does not model it.
 - **Lost orders.** Orders live in memory; after a restart there is no record to reconcile. Rebuilding one from PayPal's record is possible but not built.
 - **Refunds and reauthorisation** are not modelled, because neither is built.

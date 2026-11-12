@@ -1,0 +1,61 @@
+﻿{
+    "orderId":  "9J09700723563923V",
+    "status":  "AUTHORISED",
+    "lines":  [
+                  {
+                      "line_id":  "line-1",
+                      "product_id":  "if-2i2-4",
+                      "name":  "Focusrite Scarlett 2i2 4th Gen",
+                      "merchant":  "merchant_a",
+                      "qty":  1,
+                      "amount_cents":  22499,
+                      "state":  "AUTHORISED",
+                      "auth_id":  "5DT48935FF0263118"
+                  },
+                  {
+                      "line_id":  "line-2",
+                      "product_id":  "mic-sm58lc",
+                      "name":  "Shure SM58-LC",
+                      "merchant":  "merchant_b",
+                      "qty":  2,
+                      "amount_cents":  21800,
+                      "state":  "AUTHORISED",
+                      "auth_id":  "5DT48935FF0263118"
+                  },
+                  {
+                      "line_id":  "line-3",
+                      "product_id":  "cable-hosa-hmic010",
+                      "name":  "Hosa HMIC-010",
+                      "merchant":  "merchant_a",
+                      "qty":  2,
+                      "amount_cents":  3222,
+                      "state":  "AUTHORISED",
+                      "auth_id":  "5DT48935FF0263118"
+                  },
+                  {
+                      "line_id":  "line-4",
+                      "product_id":  "stand-compass",
+                      "name":  "Logitech G Compass Broadcast Boom Arm",
+                      "merchant":  "merchant_c",
+                      "qty":  2,
+                      "amount_cents":  19998,
+                      "state":  "AUTHORISED",
+                      "auth_id":  "5DT48935FF0263118"
+                  },
+                  {
+                      "line_id":  "line-5",
+                      "product_id":  "hp-mdr7506",
+                      "name":  "Sony MDR-7506",
+                      "merchant":  "merchant_c",
+                      "qty":  2,
+                      "amount_cents":  19600,
+                      "state":  "AUTHORISED",
+                      "auth_id":  "5DT48935FF0263118"
+                  }
+              ],
+    "events":  [
+                   "2026-11-12T02:24:27.772Z ORDER_CREATED 9J09700723563923V",
+                   "2026-11-12T02:25:13.485Z AUTHORISED platform 5DT48935FF0263118"
+               ],
+    "created_at":  1794450267772
+}

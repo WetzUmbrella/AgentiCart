@@ -1,0 +1,11 @@
+﻿PayPal base: https://api-m.sandbox.paypal.com
+Order 7U829600DK341205V
+  order status: COMPLETED
+  purchase unit 0 (platform): 1 authorisation(s), 5 capture(s)
+    capture 1MA94901SV897341Y COMPLETED 32.22 invoice_id=7U829600DK341205V-line-3 final_capture=true
+    capture 7J0383374X624180U COMPLETED 199.98 invoice_id=7U829600DK341205V-line-4 final_capture=true
+    capture 9N411256TJ145033W COMPLETED 224.99 invoice_id=7U829600DK341205V-line-1 final_capture=true
+    capture 8F9021841G684521G COMPLETED 218.00 invoice_id=7U829600DK341205V-line-2 final_capture=true
+    capture 26A82726LY394652K COMPLETED 196.00 invoice_id=7U829600DK341205V-line-5 final_capture=true
+    authorisation 2D1020590L814920C: order record says CAPTURED, direct read says CAPTURED | amount 871.19 | created 2026-11-12T06:28:57Z | expires 2026-12-11T06:28:57Z
+VERDICT: NOTHING HELD. Every authorisation is captured, voided, expired or denied.

@@ -35,8 +35,91 @@ What changed because of B:
 - **B1 was a real bug, now fixed.** `orders.ts` only treated `DUPLICATE_INVOICE_ID` as "may already be charged", so `DUPLICATE_TRANSACTION` would have been read as a clear refusal and the line marked "Do not ship" although PayPal had charged it. It now goes to the `invoice_id` lookup like a timeout. The mock returns the real code, and a new test checks the line ends CAPTURED, charged once. Reaching this in the app needs the same `invoice_id` with a different request ID; the app always sends `cap-<order>-<line>` for a line, so it should not happen in practice.
 - **B2 needs no code change.** PayPal is no backstop against over-capture. The app only ever captures `line.amount_cents`, fixed at order creation, and the lines add up to the authorisation; the line lock and per-line request ID stop a second capture. The mock still refuses over-capture on purpose, so tests catch it if our code ever tries.
 - Nothing left held: A was voided; B's authorisation is `CAPTURED`, so its cleanup void was refused with `PREVIOUSLY_CAPTURED`.
-- `reconcile` ran on a hand-built closed order made from A's real IDs, so it tests the comparison with PayPal, not the app's own close. A full run through the app is still owed (H17).
+- `reconcile` ran on a hand-built closed order made from A's real IDs, so it tests the comparison with PayPal, not the app's own close. The full run through the app is H17, below.
 - Approval: the PayPal page keeps spinning after the final click, likely because the order has no return URL (not verified). The approval still registers; the script reads it from PayPal instead of waiting for Enter.
+
+## H17: full sandbox run through the app (Thu 12 Nov, A)
+
+Local `npm run dev` on `feat/a-sandbox` at `992bb67` (main `af6322b` + PR #7), `PAYPAL_MODE=sandbox`, `AI_MODE=mock`, single merchant. Same sandbox app and accounts as Render. One approval in the PayPal popup as `shopper`; everything else through the shop page and merchant console, then read back with `reconcile` and `scripts/check-hold.mts`. Raw outputs in `docs/h17/`.
+
+Order `9J09700723563923V`, auth `5DT48935FF0263118`, $871.19 (the demo bundle in `demo-bundle.md`).
+
+| Line | Part | Amount | What was shipped | Result |
+|---|---|---|---|---|
+| line-1 | Scarlett 2i2 4th Gen | $224.99 | SM58S label, twice | Not charged, blocked (check 2 of 2) |
+| line-2 | SM58-LC x2 | $218.00 | SM58S (wrong variant), blurry label (not counted), SM58-LC | Charged after one repack: capture `1L1240126X7592721`, tracking `DEMO1` accepted |
+| line-3 | HMIC-010 x2 | $32.22 | Can't fulfil: Out of stock | Not charged |
+| line-4 | Compass arm x2 | $199.98 | Scarlett label, then HMIC label | Not charged, blocked (check 2 of 2) |
+| line-5 | MDR-7506 x2 | $196.00 | MDR-7506 label | Charged: capture `9ND27972HG429400A`, tracking `DEMO2` accepted |
+
+| Check | Expected | Real | Verdict |
+|---|---|---|---|
+| H1 `POST /api/ship` again on a charged line (line-2) | Refused before PayPal | 409; no new event in the order log | PASS |
+| H2 `POST /api/ship` on a twice-blocked line (line-1) | Refused before PayPal | 409; no new event | PASS |
+| H3 `reconcile` before Finish | PASS, not settled; $414.00 charged, $457.19 still held | Exactly that, `MATCHED` (PayPal's status for a part-charged hold is one reconcile accepts) | PASS |
+| H4 Finish | Void the rest, close | `VOIDED 5DT48935FF0263118`, `CLOSED`, $457.19 released | PASS |
+| H5 `reconcile` after Finish | PASS, settled | PASS, settled, `MATCHED`: $871.19 held = $414.00 charged + $457.19 released | PASS |
+| H6 `check-hold` (PayPal's own record) | 2 captures, auth voided | 2 COMPLETED captures, `invoice_id` `<order>-line-2` $218.00 and `<order>-line-5` $196.00, `final_capture: false`; auth `VOIDED`; NOTHING HELD | PASS |
+| H7 Sandbox accounts | Business: 2 payments, $218.00 and $196.00 | Business Activity, read 12 Nov 19:35 SGT: `Payment from Doe John` $218.00 at 10:39 and $196.00 at 10:42. Other 12 Nov rows: `7U82…` x5, `7F95…` x3 (none for $218.00 / $32.22), money-path run x4. One authorisation, $871.19 at 10:16, `Voided` (likely `53T2…`). Shopper Activity, read 12 Nov 15:22 SGT: same 14 charges, no open hold from 12 Nov. PayPal shows a fee per row ($196.00 → $6.96 fee); `reconcile` checks the gross. Not ours: pending $375.01 authorisation of 31 Oct, `1AK30146LJ6018826`, expires on its own | PASS |
+
+Second order, nothing shipped: `53T26603PA8320415`, auth `2XM18026NP773153J`, $871.19. Finish was pressed straight after approval: auth `VOIDED`, `reconcile` PASS, settled, `MATCHED`, $0.00 charged, $871.19 released; `check-hold` NOTHING HELD.
+
+What the run showed:
+
+- On real PayPal, two parts were charged (one after a repack) and three were not (two blocked twice, one out of stock). Nothing was charged twice, and every cent of the hold is placed in both our record and PayPal's.
+- The run was meant to follow `e2e/demo.spec.ts` and drifted because of the merchant console, not the money path. A label is checked against whatever line the Part dropdown shows; after a wrong-part result the dropdown keeps that line selected and the button turns into Recheck (`app/merchant/page.tsx:89`, `:149`), and picking a sample label never changes the dropdown. Twice the next label went onto the line that had just failed. The money outcome was right each time (refused, released), but a real merchant would hit the same trap. Not changed before the deadline; for the video, set Part last, just before pressing the button.
+- The shopper's sandbox balance is in SGD: the popup showed SGD 1,147.01 at 1 SGD = 0.75953 USD. The order, hold and captures are USD.
+- The first approval created two PayPal orders (two `POST /api/orders` before one `authorize`). The unapproved one holds nothing. Cause not checked.
+- Not covered: every line charged, so no void at close. `reconcile` then expects the authorisation `CAPTURED`, but every capture sends `final_capture: false` and the mock ignores that flag, so whether PayPal reports `CAPTURED` or `PARTIALLY_CAPTURED` was untested. Answered in H17b: `CAPTURED`.
+- Mock AI, so this tests the money path, not label reading. Live AI with real PayPal gets a 5-minute check on Render after the final deploy.
+
+## H17b: every part charged, and PayPal unreachable mid-run (Thu 12 Nov, A)
+
+Same setup as H17, server restarted at 13:40 SGT after the laptop slept. Raw outputs in `docs/h17/b-*` (order `7F950519FN343042F`) and `docs/h17/c-*` (order `7U829600DK341205V`).
+
+### Every part charged: `7U829600DK341205V`
+
+Auth `2D1020590L814920C`, $871.19. All five lines shipped with their matching sample label and tracking `DEMO41` to `DEMO45`, 14:33:27 to 14:34:44 SGT. Each capture came back in 2 to 3 s.
+
+| Check | Expected | Real | Verdict |
+|---|---|---|---|
+| C1 `check-hold` after the fifth capture, before Finish (`c-07`) | Auth `CAPTURED` | 5 COMPLETED captures: $224.99 + $218.00 + $32.22 + $199.98 + $196.00 = $871.19. Auth `CAPTURED` in both the order record and a direct read. NOTHING HELD | PASS |
+| C2 Finish | Close with no void, since nothing is held | `CLOSED`, no `VOIDED` event, $0 released (`lib/orders.ts:379` skips a hold with nothing left) | PASS |
+| C3 `reconcile` after Finish | PASS, settled | PASS, settled, `MATCHED`: $871.19 held = $871.19 charged + $0 released | PASS |
+| C4 `check-hold` after Finish (`c-09`) | Same as C1 | Same as C1 | PASS |
+
+What it showed:
+
+- Every capture is sent with `final_capture: false` (`lib/orders.ts:278`), and PayPal still marked the authorisation `CAPTURED` once the captured total reached the authorised amount. `reconcile` expects exactly that (`lib/reconcile.ts:212`). No code change.
+- PayPal's order record then shows `final_capture: true` on all five captures. On the part-charged orders (`9J09700723563923V`, `7F950519FN343042F`) the same field reads `false`. So in PayPal's record the field follows the authorisation's end state, not only what was sent. Unverified: the request body was not logged; "sent as false" rests on the code.
+- The mock already derives the status from the amounts (`lib/paypal-mock.ts:129`), which matches what the sandbox did.
+
+### PayPal unreachable on two captures: `7F950519FN343042F`
+
+Auth `1W438326R9724651D`, $871.19. Planned as the every-part run; two captures got no answer from PayPal.
+
+| Line | What happened |
+|---|---|
+| line-1 Scarlett $224.99 | Charged, `50511835AH265605C` |
+| line-2 SM58-LC $218.00 | 13:57:35 SGT: the capture call took 22 s (20 s timeout and one retry with the same `PayPal-Request-Id`, `lib/paypal.ts:13`, `:19`). The lookup in PayPal's order record then failed too: `CAPTURE_UNCONFIRMED (PayPal unreachable)`. Console: "Being confirmed. Do not ship yet." |
+| line-3 HMIC-010 $32.22 | Same, 13:58:42 SGT |
+| line-4 Compass $199.98, line-5 MDR-7506 $196.00 | Charged at 14:00 in 2 to 3 s: `03N150475K185534W`, `8E758346J8480410N` |
+
+| Check | Expected | Real | Verdict |
+|---|---|---|---|
+| R1 `check-hold` while unconfirmed (`b-05`, 14:02 and 14:16) | Only the captures we recorded, or the two missing ones | 3 COMPLETED captures (line-1, -4, -5), $620.97; auth `PARTIALLY_CAPTURED`, $250.22 held; nothing for line-2 or line-3 | PASS |
+| R2 `reconcile` before Finish | UNKNOWN, never PASS | UNKNOWN, $250.22 unknown, both lines named; `MATCHED` | PASS |
+| R3 Finish, 14:17:59 SGT | Ask PayPal again before releasing | `CONFIRMED_NOT_CHARGED` line-2 and line-3, `VOIDED 1W438326R9724651D`, `CLOSED` within 2 s. Console: "PayPal confirmed this part was never charged. Do not ship." and "Released $250.22 back to the shopper." | PASS |
+| R4 `reconcile` after Finish | PASS, settled | PASS, settled, `MATCHED`: $871.19 = $620.97 charged + $250.22 released | PASS |
+| R5 `check-hold` after Finish (`b-06`) | 3 captures, auth voided | 3 COMPLETED captures, auth `VOIDED`, NOTHING HELD | PASS |
+
+What it showed:
+
+- The unconfirmed-charge path (risk R-P3) ran against a real PayPal outage, not a forced error. The app called the two parts neither charged nor free until PayPal's own record answered, then released exactly the $250.22 that was never taken.
+- A line whose charge is unconfirmed cannot be shipped again (`lib/ship-rules.ts:12`), so this order could not reach every part charged. A fresh order was used for that (above).
+- Cause of the outage (13:57:35 to 13:59:17 SGT) not found: laptop network or the sandbox. If it happens in the live demo, the merchant waits about 22 s on that part and sees "Do not ship yet". The money stays right.
+- On the finished console the two lines read "Charge failed" in red, which looks like an app error; the grey line under it is the real message. Caption it if the screenshot is used.
+- `b-02-*`: the same order after approval, before shipping: hold `CREATED`, $871.19, expires 2026-12-11.
 
 ## Decisions
 Confirmed by A, B and C by message, 5 to 9 Nov (no call).
