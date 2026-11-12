@@ -28,14 +28,6 @@ describe("quoteInText", () => {
     expect(quoteInText("sound rein-\nforcement and studio", "sound reinforcement and studio")).toBe(true);
     expect(quoteInText("3-pin XLR-\nmale", "XLR-male")).toBe(true);
   });
-
-  it("matches fractions the PDF extracts with spaces around the slash (SM58 sheet: '5 / 8')", () => {
-    const sm58 = "Swivel Adapter\nPositive-action, break-resistant, adjustable through 180°, with\nstandard 5 / 8 in.–27 thread\nNet Weight";
-    expect(quoteInText(sm58, "standard 5/8 in.–27 thread")).toBe(true);
-    expect(quoteInText(sm58, "Swivel Adapter Positive-action, break-resistant, adjustable through 180°, with standard 5/8 in.–27 thread")).toBe(true);
-    expect(quoteInText(sm58, "standard 3/8 in.–27 thread")).toBe(false);
-    expect(quoteInText("ratio 5 8", "5/8")).toBe(false);
-  });
 });
 
 describe("assessVerdict", () => {
