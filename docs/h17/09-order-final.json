@@ -1,0 +1,265 @@
+﻿{
+    "orderId":  "9J09700723563923V",
+    "status":  "CLOSED",
+    "lines":  [
+                  {
+                      "line_id":  "line-1",
+                      "product_id":  "if-2i2-4",
+                      "name":  "Focusrite Scarlett 2i2 4th Gen",
+                      "merchant":  "merchant_a",
+                      "qty":  1,
+                      "amount_cents":  22499,
+                      "state":  "NOT_CHARGED",
+                      "auth_id":  "5DT48935FF0263118",
+                      "checks":  2,
+                      "shipped_model":  "SM58S",
+                      "photo_count":  2,
+                      "has_photo":  true,
+                      "verdict":  {
+                                      "line_id":  "line-1",
+                                      "match":  false,
+                                      "matched_variant":  null,
+                                      "label_text":  "Shure SM58S",
+                                      "reason":  "MOCK: The label in the photo reads \"Shure SM58S\", not the verified part Scarlett 2i2 4th Gen.",
+                                      "action":  "DO_NOT_CAPTURE",
+                                      "mock":  true
+                                  },
+                      "attempts":  [
+                                       {
+                                           "photo":  1,
+                                           "shipped_model":  "SM58S",
+                                           "verdict":  {
+                                                           "line_id":  "line-1",
+                                                           "match":  false,
+                                                           "matched_variant":  null,
+                                                           "label_text":  "Shure SM58S",
+                                                           "reason":  "MOCK: The label in the photo reads \"Shure SM58S\", not the verified part Scarlett 2i2 4th Gen.",
+                                                           "action":  "DO_NOT_CAPTURE",
+                                                           "mock":  true
+                                                       },
+                                           "at":  1794450552756
+                                       },
+                                       {
+                                           "photo":  2,
+                                           "shipped_model":  "SM58S",
+                                           "verdict":  {
+                                                           "line_id":  "line-1",
+                                                           "match":  false,
+                                                           "matched_variant":  null,
+                                                           "label_text":  "Shure SM58S",
+                                                           "reason":  "MOCK: The label in the photo reads \"Shure SM58S\", not the verified part Scarlett 2i2 4th Gen.",
+                                                           "action":  "DO_NOT_CAPTURE",
+                                                           "mock":  true
+                                                       },
+                                           "at":  1794450602112
+                                       }
+                                   ]
+                  },
+                  {
+                      "line_id":  "line-2",
+                      "product_id":  "mic-sm58lc",
+                      "name":  "Shure SM58-LC",
+                      "merchant":  "merchant_b",
+                      "qty":  2,
+                      "amount_cents":  21800,
+                      "state":  "CAPTURED",
+                      "auth_id":  "5DT48935FF0263118",
+                      "checks":  2,
+                      "shipped_model":  "SM58-LC",
+                      "photo_count":  3,
+                      "has_photo":  true,
+                      "verdict":  {
+                                      "line_id":  "line-2",
+                                      "match":  true,
+                                      "matched_variant":  "SM58-LC",
+                                      "label_text":  "Shure SM58-LC",
+                                      "reason":  "MOCK: The label shows the verified part SM58-LC.",
+                                      "action":  "CAPTURE",
+                                      "mock":  true
+                                  },
+                      "attempts":  [
+                                       {
+                                           "photo":  1,
+                                           "shipped_model":  "SM58S",
+                                           "verdict":  {
+                                                           "line_id":  "line-2",
+                                                           "match":  false,
+                                                           "matched_variant":  null,
+                                                           "label_text":  "Shure SM58S",
+                                                           "reason":  "MOCK: The label in the photo reads \"Shure SM58S\", not the verified part SM58-LC.",
+                                                           "action":  "DO_NOT_CAPTURE",
+                                                           "mock":  true
+                                                       },
+                                           "at":  1794451085007
+                                       },
+                                       {
+                                           "photo":  2,
+                                           "shipped_model":  "SM58-LC",
+                                           "verdict":  {
+                                                           "line_id":  "line-2",
+                                                           "match":  false,
+                                                           "matched_variant":  null,
+                                                           "label_text":  null,
+                                                           "reason":  "MOCK: The model on the label photo could not be read. Not charged; retake the photo.",
+                                                           "action":  "DO_NOT_CAPTURE",
+                                                           "unreadable":  true,
+                                                           "mock":  true
+                                                       },
+                                           "at":  1794451125558
+                                       },
+                                       {
+                                           "photo":  3,
+                                           "shipped_model":  "SM58-LC",
+                                           "verdict":  {
+                                                           "line_id":  "line-2",
+                                                           "match":  true,
+                                                           "matched_variant":  "SM58-LC",
+                                                           "label_text":  "Shure SM58-LC",
+                                                           "reason":  "MOCK: The label shows the verified part SM58-LC.",
+                                                           "action":  "CAPTURE",
+                                                           "mock":  true
+                                                       },
+                                           "at":  1794451151935
+                                       }
+                                   ],
+                      "capture_id":  "1L1240126X7592721",
+                      "tracking_number":  "DEMO1"
+                  },
+                  {
+                      "line_id":  "line-3",
+                      "product_id":  "cable-hosa-hmic010",
+                      "name":  "Hosa HMIC-010",
+                      "merchant":  "merchant_a",
+                      "qty":  2,
+                      "amount_cents":  3222,
+                      "state":  "NOT_CHARGED",
+                      "auth_id":  "5DT48935FF0263118",
+                      "cancel_reason":  "Out of stock"
+                  },
+                  {
+                      "line_id":  "line-4",
+                      "product_id":  "stand-compass",
+                      "name":  "Logitech G Compass Broadcast Boom Arm",
+                      "merchant":  "merchant_c",
+                      "qty":  2,
+                      "amount_cents":  19998,
+                      "state":  "NOT_CHARGED",
+                      "auth_id":  "5DT48935FF0263118",
+                      "checks":  2,
+                      "shipped_model":  "HMIC-010",
+                      "photo_count":  2,
+                      "has_photo":  true,
+                      "verdict":  {
+                                      "line_id":  "line-4",
+                                      "match":  false,
+                                      "matched_variant":  null,
+                                      "label_text":  "Hosa HMIC-010",
+                                      "reason":  "MOCK: The label in the photo reads \"Hosa HMIC-010\", not the verified part Compass Broadcast Boom Arm.",
+                                      "action":  "DO_NOT_CAPTURE",
+                                      "mock":  true
+                                  },
+                      "attempts":  [
+                                       {
+                                           "photo":  1,
+                                           "shipped_model":  "Scarlett 2i2 4th Gen",
+                                           "verdict":  {
+                                                           "line_id":  "line-4",
+                                                           "match":  false,
+                                                           "matched_variant":  null,
+                                                           "label_text":  "Focusrite Scarlett 2i2 4th Gen",
+                                                           "reason":  "MOCK: The label in the photo reads \"Focusrite Scarlett 2i2 4th Gen\", not the verified part Compass Broadcast Boom Arm.",
+                                                           "action":  "DO_NOT_CAPTURE",
+                                                           "mock":  true
+                                                       },
+                                           "at":  1794451240441
+                                       },
+                                       {
+                                           "photo":  2,
+                                           "shipped_model":  "HMIC-010",
+                                           "verdict":  {
+                                                           "line_id":  "line-4",
+                                                           "match":  false,
+                                                           "matched_variant":  null,
+                                                           "label_text":  "Hosa HMIC-010",
+                                                           "reason":  "MOCK: The label in the photo reads \"Hosa HMIC-010\", not the verified part Compass Broadcast Boom Arm.",
+                                                           "action":  "DO_NOT_CAPTURE",
+                                                           "mock":  true
+                                                       },
+                                           "at":  1794451269514
+                                       }
+                                   ]
+                  },
+                  {
+                      "line_id":  "line-5",
+                      "product_id":  "hp-mdr7506",
+                      "name":  "Sony MDR-7506",
+                      "merchant":  "merchant_c",
+                      "qty":  2,
+                      "amount_cents":  19600,
+                      "state":  "CAPTURED",
+                      "auth_id":  "5DT48935FF0263118",
+                      "checks":  1,
+                      "shipped_model":  "MDR-7506",
+                      "photo_count":  1,
+                      "has_photo":  true,
+                      "verdict":  {
+                                      "line_id":  "line-5",
+                                      "match":  true,
+                                      "matched_variant":  "MDR-7506",
+                                      "label_text":  "Sony MDR-7506",
+                                      "reason":  "MOCK: The label shows the verified part MDR-7506.",
+                                      "action":  "CAPTURE",
+                                      "mock":  true
+                                  },
+                      "attempts":  [
+                                       {
+                                           "photo":  1,
+                                           "shipped_model":  "MDR-7506",
+                                           "verdict":  {
+                                                           "line_id":  "line-5",
+                                                           "match":  true,
+                                                           "matched_variant":  "MDR-7506",
+                                                           "label_text":  "Sony MDR-7506",
+                                                           "reason":  "MOCK: The label shows the verified part MDR-7506.",
+                                                           "action":  "CAPTURE",
+                                                           "mock":  true
+                                                       },
+                                           "at":  1794451366218
+                                       }
+                                   ],
+                      "capture_id":  "9ND27972HG429400A",
+                      "tracking_number":  "DEMO2"
+                  }
+              ],
+    "events":  [
+                   "2026-11-12T02:24:27.772Z ORDER_CREATED 9J09700723563923V",
+                   "2026-11-12T02:25:13.485Z AUTHORISED platform 5DT48935FF0263118",
+                   "2026-11-12T02:29:12.756Z SHIPPED line-1 \"SM58S\" with label photo",
+                   "2026-11-12T02:29:12.756Z NOT_CHARGED line-1 (check 1 of 2)",
+                   "2026-11-12T02:30:02.112Z SHIPPED line-1 \"SM58S\" with label photo",
+                   "2026-11-12T02:30:02.112Z NOT_CHARGED line-1 (check 2 of 2)",
+                   "2026-11-12T02:38:05.007Z SHIPPED line-2 \"SM58S\" with label photo",
+                   "2026-11-12T02:38:05.007Z NOT_CHARGED line-2 (check 1 of 2)",
+                   "2026-11-12T02:38:45.557Z SHIPPED line-2 \"SM58-LC\" with label photo",
+                   "2026-11-12T02:38:45.558Z UNREADABLE line-2 (not counted)",
+                   "2026-11-12T02:39:11.935Z SHIPPED line-2 \"SM58-LC\" with label photo",
+                   "2026-11-12T02:39:13.677Z CAPTURED line-2 1L1240126X7592721",
+                   "2026-11-12T02:39:14.632Z TRACKING line-2 DEMO1",
+                   "2026-11-12T02:40:25.834Z CANNOT_FULFIL line-3",
+                   "2026-11-12T02:40:40.441Z SHIPPED line-4 \"Scarlett 2i2 4th Gen\" with label photo",
+                   "2026-11-12T02:40:40.441Z NOT_CHARGED line-4 (check 1 of 2)",
+                   "2026-11-12T02:41:09.514Z SHIPPED line-4 \"HMIC-010\" with label photo",
+                   "2026-11-12T02:41:09.514Z NOT_CHARGED line-4 (check 2 of 2)",
+                   "2026-11-12T02:42:46.218Z SHIPPED line-5 \"MDR-7506\" with label photo",
+                   "2026-11-12T02:42:48.569Z CAPTURED line-5 9ND27972HG429400A",
+                   "2026-11-12T02:42:49.614Z TRACKING line-5 DEMO2",
+                   "2026-11-12T02:44:27.797Z VOIDED 5DT48935FF0263118",
+                   "2026-11-12T02:44:27.797Z CLOSED"
+               ],
+    "created_at":  1794450267772,
+    "voided_auth_ids":  [
+                            "5DT48935FF0263118"
+                        ],
+    "released_cents":  45719,
+    "closed_at":  1794451467797
+}

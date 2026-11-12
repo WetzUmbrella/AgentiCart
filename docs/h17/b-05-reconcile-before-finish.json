@@ -1,0 +1,16 @@
+﻿{
+    "orderId":  "7F950519FN343042F",
+    "order_status":  "AUTHORISED",
+    "status":  "UNKNOWN",
+    "settled":  false,
+    "held_cents":  87119,
+    "charged_cents":  62097,
+    "released_cents":  0,
+    "still_held_cents":  0,
+    "unknown_cents":  25022,
+    "reasons":  [
+                    "line-2: PayPal has not confirmed whether it was charged",
+                    "line-3: PayPal has not confirmed whether it was charged"
+                ],
+    "paypal":  "MATCHED"
+}

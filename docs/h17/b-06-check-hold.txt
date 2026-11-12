@@ -1,0 +1,11 @@
+﻿PayPal base: https://api-m.sandbox.paypal.com
+Order 7F950519FN343042F
+  order status: COMPLETED
+  purchase unit 0 (platform): 1 authorisation(s), 3 capture(s)
+    capture 8E758346J8480410N COMPLETED 196.00 invoice_id=7F950519FN343042F-line-5 final_capture=false
+    capture 50511835AH265605C COMPLETED 224.99 invoice_id=7F950519FN343042F-line-1 final_capture=false
+    capture 03N150475K185534W COMPLETED 199.98 invoice_id=7F950519FN343042F-line-4 final_capture=false
+    authorisation 1W438326R9724651D: order record says VOIDED, direct read says VOIDED | amount 871.19 | created 2026-11-12T05:44:12Z | expires 2026-12-11T05:44:12Z
+VERDICT: NOTHING HELD. Every authorisation is captured, voided, expired or denied.
+NOTE: a VOIDED authorisation means the script got past Order A, so it probably created Order B.
+      B's ID is in that terminal's scrollback or the sandbox dashboard; run this script on it too.

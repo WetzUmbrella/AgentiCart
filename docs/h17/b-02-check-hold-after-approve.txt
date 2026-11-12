@@ -1,0 +1,7 @@
+﻿PayPal base: https://api-m.sandbox.paypal.com
+Order 7F950519FN343042F
+  order status: COMPLETED
+  purchase unit 0 (platform): 1 authorisation(s), 0 capture(s)
+    authorisation 1W438326R9724651D: order record says CREATED, direct read says CREATED | amount 871.19 | created 2026-11-12T05:44:12Z | expires 2026-12-11T05:44:12Z
+      HOLDING: authorised 871.19, captured $0.00, up to $871.19 still held
+VERDICT: HOLD OPEN on 1 authorisation(s). Paste this output; the void is a separate step.
