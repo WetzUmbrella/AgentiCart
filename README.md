@@ -9,7 +9,7 @@ Built for the PayPal AI Hackathon.
 ## Try it
 
 - Hosted demo: https://agentcart-7392.onrender.com (Render, Singapore region, deployed from `main`)
-- Log in to the PayPal popup with the judge sandbox account: `[judge email]` / `[judge password]`
+- Log in to the PayPal popup with the judge sandbox account: `sb-plcm853618932@personal.example.com` / `Ufp0I.HO`
 - The first load can take about a minute if the free server was asleep.
 - Type a goal (the default is "Podcast setup for 2 people under $900") and press **Build my bundle**.
 - Approve with PayPal, then open the **merchant console** from the link on the page and ship parts with a photo of the box label. Use the sample labels: the `SM58S` label on the Shure line, or the blurry label, shows a part that is not charged.
