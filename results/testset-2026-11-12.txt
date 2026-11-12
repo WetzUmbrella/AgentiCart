@@ -1,0 +1,108 @@
+
+> agentcart@0.1.0 testset
+> tsx scripts/run-testset.mts
+
+AgentCart accuracy run 2026-11-12T14:34:41.857Z  model gemini-3.1-pro-preview
+case   expected  got      ok   ms     reason
+t01    true      true     yes  13889  The Shure SM7B is a dynamic microphone, which does not require phantom power. It connects via standard 3-pin XLR (indicated by the pin polarity description and optional XLR cable accessory). The Focusrite Scarlett 2i2 4th Gen has two XLR microphone inputs, making them fully compatible.
+         quote [mic-sm7b]: Type
+Dynamic (moving coil)
+         quote [mic-sm7b]: Positive pressure on diaphragm produces positive voltage on pin 2 with respect to pin 3
+         quote [mic-sm7b]: 25 foot (7.5m) Triple-Flex® Microphone XLR Cable
+         quote [if-2i2-4]: Microphone inputs
+         quote [if-2i2-4]: Two rear panel Neutrik® XLR connectors
+t02    true      true     yes  10178  The Audio-Technica AT2035 microphone uses a 3-pin XLR connection and requires between 11-52V DC of phantom power. The Focusrite Scarlett Solo 4th Gen has an XLR input and supplies 48V phantom power, making them perfectly compatible.
+         quote [mic-at2035]: Output
+Connector Integral 3-pin XLRM-type
+         quote [mic-at2035]: Phantom
+Power
+Requirements
+11-52V DC, 3.8 mA typical
+         quote [if-solo-4]: One back panel Neutrik XLR input
+         quote [if-solo-4]: Front panel 48V (phantom power) button or switch in software
+t03    true      true     yes  7972   The Shure SM58S uses a standard male XLR connector, which is directly compatible with the balanced XLR microphone input on the M-Audio M-Track Solo interface. Because the SM58S is a dynamic microphone, it does not require phantom power to operate.
+         quote [mic-sm58s]: Three-pin professional audio connector (male XLR type)
+         quote [mic-sm58s]: Type
+Dynamic (moving coil)
+         quote [if-mtrack-solo]: Mic Input (balanced XLR)
+t04    true      true     yes  6602   The Audio-Technica AT2035 microphone features a 3-pin XLR male (XLRM-type) output connector. The Hosa HMIC-010 is an XLR3F (female) to XLR3M (male) microphone cable. The female end of the cable matches perfectly with the microphone's male output.
+         quote [cable-hosa-hmic010]: Pro Mic Cable, XLR3F to XLR3M
+Model
+HMIC-010
+         quote [mic-at2035]: Output
+Connector Integral 3-pin XLRM-type
+t05    true      true     yes  7158   The Shure SM58S microphone comes with a swivel adapter that uses a standard 5/8-inch thread, which matches the 5/8-inch threading on the Logitech G Compass boom arm. Additionally, the microphone's weight of 298 grams is well below the boom arm's maximum weight limit of 1.1 kg.
+         quote [stand-compass]: Threading: standard 5/ 8-inch threading, adapter for 3/8-inch threading
+         quote [stand-compass]: Max Weight Hold: 1.1 kg (including mic and shockmount)
+         quote [mic-sm58s]: standard 5/8 in.–27 thread
+         quote [mic-sm58s]: 298 grams (10.5 oz)
+t06    true      true     yes  12603  The Shure SM7B weighs 764g, which falls within the RODE PSA1's supported weight range of 700g to 1100g. Additionally, the SM7B includes a 5/8" to 3/8" thread adapter that matches the 3/8" thread on the PSA1.
+         quote [stand-psa1]: Thread Size
+3/8"
+         quote [stand-psa1]: Minimum Weight Supported (g)
+700
+         quote [stand-psa1]: Maximum Weight Supported (g)
+1100
+         quote [mic-sm7b]: Weight
+0.764 kg (1.69 lbs)
+         quote [mic-sm7b]: 5/8" to 3/8" Thread Adapter
+t07    true      true     yes  8678   The Sony MDR-7506 headphones come with a 1/4" plug, which matches the 6.35mm (1/4") stereo TRS headphone output on the front panel of the Focusrite Scarlett Solo 4th Gen. The interface can also easily drive the 63 Ohms impedance of the headphones.
+         quote [hp-mdr7506]: Plug Type Gold, Stereo Unimatch plug 1/4" and 1/8"
+         quote [hp-mdr7506]: Impedance 63 Ohms
+         quote [if-solo-4]: Headphone
+Output
+Front panel stereo 6.35mm (1.4") TRS jack socket
+         quote [if-solo-4]: Frequency Response 20-20kHz ± 0.1dB @ 33Ω / 300Ω
+t08    true      true     yes  14688  The headphones include an adapter for a 1/4" (6.5mm/6.35mm) connection, which matches the stereo 6.35mm TRS headphone output socket on the audio interface.
+         quote [hp-k371]: Adapter Yes, 3.5mm (1/8") to 6.5mm (1/4")
+         quote [if-2i2-4]: Headphone Output
+
+Front panel stereo 6.35mm (1.4") TRS jack socket
+t09    false     false    yes  11852  The Behringer UCA202 audio interface only has RCA line inputs and lacks the necessary microphone input and preamps. The Shure SM7B is an XLR microphone, which cannot plug directly into the RCA inputs of this interface.
+         quote [if-uca202]: USB audio interface with stereo RCA inputs and outputs
+         quote [if-uca202]: Line in connectors RCA, unbalanced
+         quote [mic-sm7b]: 25 foot (7.5m) Triple-Flex® Microphone XLR Cable with chrome connectors
+t10    false     false    yes  6200   The Audio-Technica AT2035 is a condenser microphone that requires an XLR connection and phantom power (11-52V). The Behringer UCA202 interface only has unbalanced RCA line inputs and does not provide an XLR microphone input or phantom power, making them incompatible without additional equipment.
+         quote [mic-at2035]: Phantom Power Requirements 11-52V DC, 3.8 mA typical
+         quote [mic-at2035]: Output Connector Integral 3-pin XLRM-type
+         quote [if-uca202]: Line in connectors RCA, unbalanced
+t11    false     false    yes  10833  The Logitech G Yeti Orb is a USB microphone that connects directly to a computer and does not feature an analog audio output. The Focusrite Scarlett Solo requires an analog microphone with an XLR connector, meaning this microphone cannot be plugged into the interface.
+         quote [mic-yeti-orb]: Connector: USB-C to USB-A
+         quote [if-solo-4]: One back panel Neutrik XLR input
+t12    false     false    yes  8496   The Logitech G Yeti Orb is a USB microphone that connects directly to a computer via USB. The M-Audio M-Track Solo audio interface is designed to accept analog inputs and only features XLR and 1/4" connectors. USB microphones cannot be connected to traditional audio interfaces.
+         quote [mic-yeti-orb]: Connector: USB-C to USB-A
+         quote [if-mtrack-solo]: Mic Input (balanced XLR)
+         quote [if-mtrack-solo]: Line Input (balanced 1/4" [6.35 mm] TRS)
+         quote [if-mtrack-solo]: Instrument Input (unbalanced 1/4" [6.35 mm] TS)
+t13    false     false    yes  7879   The Shure SM58-LC microphone requires a 3-pin XLR connection, but the RØDE SC18 is a USB-A to USB-C cable. You will need an XLR cable and a USB audio interface to connect this microphone to a computer or USB device.
+         quote [cable-rode-sc18]: USB-A to USB-C Cable (1.5m)
+         quote [mic-sm58lc]: Three-pin professional audio connector (male XLR type)
+t14    false     false    yes  6073   The Audio-Technica AT2035 microphone has a 3-pin XLR male output connector, which requires an XLR female cable to connect. The Mogami cable features TRS connectors on both ends and cannot plug into the microphone.
+         quote [cable-mogami-trs10]: Terminated with black body, gold contact TRS connectors
+         quote [mic-at2035]: Output Connector
+Integral 3-pin XLRM-type
+t15    false     false    yes  7890   The Shure SM7B microphone uses an XLR connection, whereas the Mogami GOLD cable is terminated with TRS connectors on both ends. They cannot be connected directly.
+         quote [cable-mogami-trs10]: Terminated with black body, gold contact TRS connectors
+         quote [mic-sm7b]: 25 foot (7.5m) Triple-Flex® Microphone XLR Cable with chrome connectors
+t16    false     false    yes  7872   The Shure SM58 microphone uses an XLR connector, but the Behringer UCA202 audio interface only features unbalanced RCA line inputs and does not have an XLR microphone input.
+         quote [mic-sm58lc]: Three-pin professional audio connector (male XLR type)
+         quote [if-uca202]: Line in connectors RCA, unbalanced
+t17    false     false    yes  22030  The Shure SM58S microphone is too light (298 grams) to meet the RODE PSA1 boom arm's minimum weight requirement (700 g), meaning the spring-loaded arm will likely not stay in place. Furthermore, the boom arm has a 3/8" thread, while the microphone's swivel adapter uses a 5/8" thread, and neither specification sheet lists an included thread adapter.
+         quote [stand-psa1]: Minimum Weight Supported (g)
+700
+         quote [mic-sm58s]: Net Weight
+298 grams (10.5 oz)
+         quote [stand-psa1]: Thread Size
+3/8"
+         quote [mic-sm58s]: standard 5/8 in.–27 thread
+t18    false     false    yes  7580   The Logitech G Yeti Orb requires a 1/4"-20 threaded mount to attach to a stand or boom arm. The Logitech G Compass Broadcast Boom Arm only includes standard 5/8-inch threading and a 3/8-inch adapter. They are incompatible out of the box because their mounting threads do not match.
+         quote [stand-compass]: Threading: standard 5/ 8-inch threading, adapter for 3/8-inch threading
+         quote [mic-yeti-orb]: Mounting: Included stand or any ¼”-20 threaded mount
+t19    true      true     yes  7766   The Sennheiser HD 600 uses a 3.5 mm stereo jack plug, which matches the 1/8" (3.5 mm) TRS headphone output on the M-Audio M-Track Solo.
+         quote [hp-hd600]: Connector 3.5 mm stereo jack plug
+         quote [if-mtrack-solo]: Headphone Output (1/8” [3.5 mm] TRS)
+t20    true      true     yes  13003  The headphones have a 3.5 mm (1/8") mini stereo plug, which connects directly into the 1/8" TRS stereo headphone jack on the audio interface.
+         quote [hp-dt770-250]: Gold plated mini stereo jack plug (3.5 mm) & 1/4" adapter (6.35 mm)
+         quote [if-uca202]: Phones out socket 1⁄8" TRS stereo jack
+
+SCORE 20/20 on real spec-sheet pairings
