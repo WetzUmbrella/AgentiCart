@@ -83,7 +83,7 @@ Not built and not claimed: live retailer stock, multi-retailer search, real merc
 
 ## Accuracy
 
-`[X]/20` on hand-checked pairings of real spec sheets. Results: `results/testset-YYYY-MM-DD.txt`. The 20 cases were written before the AI was run on them and are separate from the 5 development cases in `data/seed.json`.
+`20/20` on hand-checked pairings of real spec sheets (Gemini Pro `gemini-3.1-pro-preview`, live mode, 12 Nov 2026). Results: `results/testset-2026-11-12.txt`. The 20 cases were written before the AI was run on them and are separate from the 5 development cases in `data/seed.json`.
 
 ## AG Grid features used
 
